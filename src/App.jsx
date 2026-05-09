@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { RefreshCw, X, FolderOpen, Search, PowerOff, Plus, StopCircle, Trash2, Folder } from 'lucide-react';
 import ReactFlow, {
   Background,
   BackgroundVariant,
@@ -11,7 +12,6 @@ import 'reactflow/dist/style.css';
 
 import WorktreeNode from './components/WorktreeNode.jsx';
 import CreateModal from './components/CreateModal.jsx';
-import TerminalPanel from './components/TerminalPanel.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import { COLORS, ICONS } from './repoMeta.js';
 
@@ -107,7 +107,7 @@ function AddRepoModal({ onClose, onAdded }) {
             <div className="modal-title">Add Project</div>
             <div className="modal-subtitle">Register a local git repository to manage its worktrees.</div>
           </div>
-          <button className="btn-icon modal-close" onClick={onClose}>×</button>
+          <button className="btn-icon modal-close" onClick={onClose}><X size={16} /></button>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="modal-body modal-body--repo">
@@ -130,9 +130,7 @@ function AddRepoModal({ onClose, onAdded }) {
                   disabled={picking}
                   title="Browse for folder"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                  </svg>
+                  <FolderOpen size={15} />
                 </button>
               </div>
             </div>
@@ -174,7 +172,7 @@ function AddRepoModal({ onClose, onAdded }) {
                     className={`icon-btn ${icon === ic.id ? 'icon-btn--selected' : ''}`}
                     onClick={() => setIcon(ic.id)}
                   >
-                    {ic.label}
+                    <ic.Icon size={16} />
                   </button>
                 ))}
               </div>
@@ -195,33 +193,94 @@ function AddRepoModal({ onClose, onAdded }) {
 }
 
 function SettingsModal({ agent, onAgentChange, onClose, onShutdown }) {
+  const [sessions, setSessions] = useState([]);
+
+  const fetchSessions = useCallback(async () => {
+    const res = await fetch('/api/sessions');
+    if (res.ok) {
+      const data = await res.json();
+      setSessions(data.sessions || []);
+    }
+  }, []);
+
   useEffect(() => {
     const h = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, [onClose]);
 
+  useEffect(() => { fetchSessions(); }, [fetchSessions]);
+
+  const killSession = async (sessionId) => {
+    await fetch('/api/worktrees/kill-terminal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId }),
+    });
+    fetchSessions();
+  };
+
+  const killAll = async () => {
+    await fetch('/api/sessions/kill-all', { method: 'POST' });
+    fetchSessions();
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal modal--settings" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <span className="modal-title">Settings</span>
-          <button className="btn-icon modal-close" onClick={onClose}>×</button>
+          <button className="btn-icon modal-close" onClick={onClose}><X size={16} /></button>
         </div>
         <div className="modal-body">
+
+          {/* Agent */}
           <div className="settings-row">
             <span className="settings-label">AI Agent</span>
             <div className="agent-toggle">
-              <button
-                className={`agent-btn ${agent === 'claude' ? 'agent-btn--active' : ''}`}
-                onClick={() => onAgentChange('claude')}
-              >Claude</button>
-              <button
-                className={`agent-btn ${agent === 'copilot' ? 'agent-btn--active' : ''}`}
-                onClick={() => onAgentChange('copilot')}
-              >Copilot</button>
+              <button className={`agent-btn ${agent === 'claude' ? 'agent-btn--active' : ''}`} onClick={() => onAgentChange('claude')}>Claude</button>
+              <button className={`agent-btn ${agent === 'copilot' ? 'agent-btn--active' : ''}`} onClick={() => onAgentChange('copilot')}>Copilot</button>
             </div>
           </div>
+
+          {/* Terminal sessions */}
+          <div className="settings-section">
+            <div className="settings-section-header">
+              <span className="settings-label">
+                Terminal Sessions
+                {sessions.length > 0 && <span className="settings-count">{sessions.length}</span>}
+              </span>
+              {sessions.length > 0 && (
+                <button className="btn-danger btn-danger--sm" onClick={killAll} title="Kill all sessions">
+                  <Trash2 size={12} /> Kill All
+                </button>
+              )}
+            </div>
+
+            {sessions.length === 0 ? (
+              <div className="settings-empty">No active terminal sessions</div>
+            ) : (
+              <div className="session-list-settings">
+                {sessions.map((s) => (
+                  <div key={s.sessionId} className="session-list-item">
+                    <div className="session-list-info">
+                      <span className="session-list-title">{s.title}</span>
+                      <span className="session-list-meta">PID {s.pid} · {s.wtPath.split('/').pop()}</span>
+                    </div>
+                    <button
+                      className="btn-icon btn-icon--sm"
+                      onClick={() => killSession(s.sessionId)}
+                      title="Kill session"
+                    >
+                      <StopCircle size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Shutdown */}
           <div className="settings-row settings-row--danger">
             <div>
               <span className="settings-label">Shut down server</span>
@@ -229,6 +288,7 @@ function SettingsModal({ agent, onAgentChange, onClose, onShutdown }) {
             </div>
             <button className="btn-danger" onClick={onShutdown}>Shut down</button>
           </div>
+
         </div>
         <div className="modal-footer">
           <button className="btn-primary" onClick={onClose}>Done</button>
@@ -250,8 +310,6 @@ export default function App() {
   const [sidebarExpanded, setSidebarExpanded] = useState(
     () => localStorage.getItem('wooop-sidebar') !== 'collapsed'
   );
-  const [termTabs, setTermTabs] = useState([]);
-  const [activeTab, setActiveTab] = useState(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [agent, setAgent] = useState(() => localStorage.getItem('wooop-agent') || 'claude');
   const [agentChosen, setAgentChosen] = useState(() => !!localStorage.getItem('wooop-agent'));
@@ -310,11 +368,20 @@ export default function App() {
   const fetchWorktrees = useCallback(async () => {
     try {
       const res = await fetch('/api/worktrees');
+      if (!res.ok) {
+        let msg;
+        try { msg = (await res.json()).error; } catch { msg = `Server error ${res.status}`; }
+        setFatalError(msg);
+        return;
+      }
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
       setWorktrees(data.worktrees);
     } catch (err) {
-      setFatalError(err.message);
+      if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+        setFatalError('Cannot connect to wooop server. Make sure you ran: node server.js');
+      } else {
+        setFatalError(err.message);
+      }
     }
   }, []);
 
@@ -340,15 +407,8 @@ export default function App() {
         body: JSON.stringify({ wtPath, agent }),
       });
       const data = await res.json();
-      const title = data.title || wtPath.split(/[\\/]/).pop();
-      const sessionId = data.sessionId;
-
-      setTermTabs((prev) => {
-        if (prev.some((t) => t.sessionId === sessionId)) return prev;
-        return [...prev, { sessionId, wtPath, title, status: 'connecting' }];
-      });
-      setActiveTab(sessionId);
       setTimeout(fetchWorktrees, 600);
+      return data.sessionId;
     },
     [fetchWorktrees, agent]
   );
@@ -361,30 +421,10 @@ export default function App() {
         body: JSON.stringify({ wtPath, agent }),
       });
       const data = await res.json();
-      const title = `${data.title} #${data.sessionNumber}`;
-
-      setTermTabs((prev) => [
-        ...prev,
-        { sessionId: data.sessionId, wtPath, title, status: 'connecting' },
-      ]);
-      setActiveTab(data.sessionId);
       setTimeout(fetchWorktrees, 600);
+      return data.sessionId;
     },
     [fetchWorktrees, agent]
-  );
-
-  const handleSwitchSession = useCallback(
-    async (wtPath, sessionId) => {
-      setTermTabs((prev) => {
-        if (prev.some((t) => t.sessionId === sessionId)) return prev;
-        const wt = worktrees.find((w) => w.path === wtPath);
-        const session = wt?.sessions?.find((s) => s.sessionId === sessionId);
-        const title = wt?.branch || wt?.name || wtPath.split(/[\\/]/).pop();
-        return [...prev, { sessionId, wtPath, title: `${title} · ${session?.pid || '?'}`, status: 'connecting' }];
-      });
-      setActiveTab(sessionId);
-    },
-    [worktrees]
   );
 
   const handleKillTerminal = useCallback(
@@ -394,56 +434,10 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId }),
       });
-      setTermTabs((prev) => {
-        const next = prev.filter((t) => t.sessionId !== sessionId);
-        setActiveTab((cur) => {
-          if (cur !== sessionId) return cur;
-          const idx = prev.findIndex((t) => t.sessionId === sessionId);
-          return next[Math.min(idx, next.length - 1)]?.sessionId || null;
-        });
-        return next;
-      });
       setTimeout(fetchWorktrees, 300);
     },
     [fetchWorktrees]
   );
-
-  const handleCloseTab = useCallback((sessionId) => {
-    setTermTabs((prev) => {
-      const next = prev.filter((t) => t.sessionId !== sessionId);
-      setActiveTab((cur) => {
-        if (cur !== sessionId) return cur;
-        const idx = prev.findIndex((t) => t.sessionId === sessionId);
-        return next[Math.min(idx, next.length - 1)]?.sessionId || null;
-      });
-      return next;
-    });
-  }, []);
-
-  const handleCloseAllTabs = useCallback(() => {
-    setTermTabs([]);
-    setActiveTab(null);
-  }, []);
-
-  const handleTabStatusChange = useCallback((sessionId, status) => {
-    setTermTabs((prev) =>
-      prev.map((t) => (t.sessionId === sessionId ? { ...t, status } : t))
-    );
-  }, []);
-
-  const handleRenameSession = useCallback(async (sessionId, name) => {
-    await fetch('/api/sessions/rename', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId, name }),
-    });
-    if (name.trim()) {
-      setTermTabs((prev) =>
-        prev.map((t) => (t.sessionId === sessionId ? { ...t, title: name.trim() } : t))
-      );
-    }
-    fetchWorktrees();
-  }, [fetchWorktrees]);
 
   const handleSwitchRepo = useCallback(async (repoPath) => {
     const res = await fetch('/api/repos/switch', {
@@ -528,12 +522,10 @@ export default function App() {
           onOpenCopilot: handleOpenCopilot,
           onKillTerminal: handleKillTerminal,
           onNewSession: handleNewSession,
-          onSwitchSession: handleSwitchSession,
-          onRenameSession: handleRenameSession,
         },
       }));
     });
-  }, [worktrees, agent, handleDelete, handleOpenCopilot, handleKillTerminal, handleNewSession, handleSwitchSession, handleRenameSession, setNodes]);
+  }, [worktrees, agent, handleDelete, handleOpenCopilot, handleKillTerminal, handleNewSession, setNodes]);
 
   const handleNodeDragStop = useCallback((_event, node) => {
     fetch('/api/positions', {
@@ -590,7 +582,7 @@ export default function App() {
     return (
       <div className="shutdown-screen">
         <div className="shutdown-box">
-          <div className="shutdown-icon">■</div>
+          <div className="shutdown-icon"><PowerOff size={28} /></div>
           <div className="shutdown-title">Server stopped</div>
           <div className="shutdown-sub">All terminal sessions have been killed. You can close this tab.</div>
         </div>
@@ -624,14 +616,12 @@ export default function App() {
 
       <div className="app-main">
         <header className="header">
-          <span className="logo">wooop</span>
-          {repoName && (
-            <span className="repo-label">
-              <span className="repo-sep">/</span>
-              {repoName}
-            </span>
-          )}
+          <div className="header-repo">
+            <Folder size={14} className="header-folder-icon" />
+            <span className="repo-label">{repoName || '—'}</span>
+          </div>
           <div className="search-wrap" ref={searchRef}>
+            <Search size={13} className="search-icon-glyph" />
             <input
               className="search-input"
               type="text"
@@ -676,7 +666,7 @@ export default function App() {
           <span className="wt-count">
             {worktrees.length} worktree{worktrees.length !== 1 ? 's' : ''}
           </span>
-          <button className="btn-refresh" onClick={fetchWorktrees} title="Refresh">↻</button>
+          <button className="btn-refresh" onClick={fetchWorktrees} title="Refresh"><RefreshCw size={14} /></button>
         </header>
 
         <div className="flow-wrap">
@@ -696,23 +686,12 @@ export default function App() {
             <Controls showInteractive={false} />
             <Panel position="bottom-center">
               <button className="btn-add-float" onClick={() => setCreating(true)}>
-                + New Worktree
+                <Plus size={14} /> New Worktree
               </button>
             </Panel>
           </ReactFlow>
         </div>
       </div>
-
-      {termTabs.length > 0 && (
-        <TerminalPanel
-          tabs={termTabs}
-          activeTab={activeTab}
-          onSelectTab={setActiveTab}
-          onCloseTab={handleCloseTab}
-          onCloseAll={handleCloseAllTabs}
-          onStatusChange={handleTabStatusChange}
-        />
-      )}
 
       {creating && (
         <CreateModal

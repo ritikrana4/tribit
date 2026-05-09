@@ -60,6 +60,25 @@ function getGitRoot() {
   }
 }
 
+function getBranchBase(wtPath, currentBranch) {
+  try {
+    const lines = execSync(
+      `git reflog show --format="%gs" "${currentBranch}"`,
+      { cwd: wtPath, timeout: 3000 }
+    ).toString().trim().split('\n').reverse(); // oldest first
+
+    for (const line of lines) {
+      // "branch: Created from refs/heads/main" or "branch: Created from main"
+      const created = line.match(/branch: Created from (?:refs\/heads\/)?(.+)/);
+      if (created) return created[1].trim();
+      // "checkout: moving from main to feature/auth"
+      const checkout = line.match(/checkout: moving from (.+) to /);
+      if (checkout) return checkout[1].trim();
+    }
+    return null;
+  } catch { return null; }
+}
+
 function parseWorktreeList(root) {
   const output = execSync('git worktree list --porcelain', { cwd: root }).toString();
   const entries = [];
@@ -80,13 +99,24 @@ function parseWorktreeList(root) {
 
 function getWorktreeStatus(wtPath) {
   try {
-    const out = execSync('git status --porcelain', {
-      cwd: wtPath,
-      timeout: 3000,
-    }).toString();
-    return out.trim().length > 0 ? 'dirty' : 'clean';
+    const out = execSync('git status --porcelain', { cwd: wtPath, timeout: 3000 }).toString();
+    if (!out.trim()) return { status: 'clean', filesChanged: 0, additions: 0, deletions: 0 };
+    try {
+      const stat = execSync('git diff --shortstat HEAD', { cwd: wtPath, timeout: 3000 }).toString().trim();
+      const fm = stat.match(/(\d+) file/);
+      const am = stat.match(/(\d+) insertion/);
+      const dm = stat.match(/(\d+) deletion/);
+      return {
+        status: 'dirty',
+        filesChanged: fm ? +fm[1] : 0,
+        additions: am ? +am[1] : 0,
+        deletions: dm ? +dm[1] : 0,
+      };
+    } catch {
+      return { status: 'dirty', filesChanged: 0, additions: 0, deletions: 0 };
+    }
   } catch {
-    return 'unknown';
+    return { status: 'unknown', filesChanged: 0, additions: 0, deletions: 0 };
   }
 }
 
@@ -225,11 +255,12 @@ app.get('/api/worktrees', (_req, res) => {
       const sessions = getSessionsForWorktree(wt.path);
       const latest = sessions[0] || null;
 
+      const wtStatus = getWorktreeStatus(wt.path);
       return {
         ...wt,
         name: wt.branch || path.basename(wt.path),
         isMain: i === 0,
-        status: getWorktreeStatus(wt.path),
+        ...wtStatus,
         hasTerminal: sessions.length > 0,
         sessionCount: sessions.length,
         // Latest session info (for the card display)
@@ -246,6 +277,7 @@ app.get('/api/worktrees', (_req, res) => {
         })),
         description: meta[wt.path]?.description || '',
         position: meta[wt.path]?.position || null,
+        baseBranch: wt.branch ? getBranchBase(wt.path, wt.branch) : null,
       };
     });
     res.json({ worktrees, root });
@@ -270,6 +302,24 @@ app.get('/api/branches', (_req, res) => {
   }
 });
 
+app.get('/api/diff', (req, res) => {
+  const { repoPath } = req.query;
+  if (!repoPath) return res.status(400).json({ error: 'repoPath required' });
+  try {
+    let diff = '';
+    try {
+      diff = execSync('git diff HEAD', { cwd: repoPath, maxBuffer: 10 * 1024 * 1024, timeout: 10000 }).toString();
+    } catch {
+      try {
+        diff = execSync('git diff --cached', { cwd: repoPath, maxBuffer: 10 * 1024 * 1024, timeout: 10000 }).toString();
+      } catch {}
+    }
+    res.json({ diff });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/worktrees', (req, res) => {
   const { branch, isNewBranch, description, fromBranch } = req.body;
   if (!branch?.trim())
@@ -279,7 +329,7 @@ app.post('/api/worktrees', (req, res) => {
   if (!root) return res.status(400).json({ error: 'Not a git repository' });
 
   const sanitized = branch.trim().replace(/[^a-zA-Z0-9_./-]/g, '-');
-  const wtPath = path.join(root, sanitized);
+  const wtPath = path.join(path.dirname(root), sanitized);
 
   try {
     const from = fromBranch?.trim() ? ` "${fromBranch.trim()}"` : '';
@@ -421,6 +471,14 @@ app.post('/api/worktrees/kill-terminal', (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/sessions/kill-all', (_req, res) => {
+  for (const [id, session] of terminalSessions) {
+    if (session.ptyProcess) try { session.ptyProcess.kill(); } catch {}
+    terminalSessions.delete(id);
+  }
+  res.json({ ok: true });
+});
+
 app.patch('/api/sessions/rename', (req, res) => {
   const { sessionId, name } = req.body;
   if (!sessionId || name === undefined) return res.status(400).json({ error: 'sessionId and name required' });
@@ -478,6 +536,22 @@ app.get('/api/repos', (_req, res) => {
   const repos = readRepos();
   const root = getGitRoot();
   res.json({ repos, active: root || REPO_DIR });
+});
+
+app.post('/api/open-folder', (req, res) => {
+  const { dirPath } = req.body;
+  if (!dirPath) return res.status(400).json({ error: 'dirPath required' });
+  const cmd = process.platform === 'win32' ? `explorer "${dirPath}"` : process.platform === 'darwin' ? `open "${dirPath}"` : `xdg-open "${dirPath}"`;
+  exec(cmd, () => res.json({ ok: true }));
+});
+
+app.post('/api/open-vscode', (req, res) => {
+  const { dirPath } = req.body;
+  if (!dirPath) return res.status(400).json({ error: 'dirPath required' });
+  exec(`code "${dirPath}"`, (err) => {
+    if (err) return res.status(500).json({ error: 'VS Code not found. Install the "code" CLI via VS Code > Shell Command > Install.' });
+    res.json({ ok: true });
+  });
 });
 
 app.get('/api/pick-folder', (_req, res) => {
