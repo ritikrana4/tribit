@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { GitBranch, Maximize2, Minimize2, X, Plus, StopCircle, GripVertical, ExternalLink, Code2, Folder } from 'lucide-react';
+import { GitBranch, Maximize2, Minimize2, X, Plus, StopCircle, GripVertical, ExternalLink, Code2, Folder, ChevronDown, ChevronUp } from 'lucide-react';
 import TerminalView from './TerminalView.jsx';
 import DiffViewer from './DiffViewer.jsx';
 import MonacoPanel from './MonacoPanel.jsx';
@@ -20,6 +20,7 @@ export default function WorktreeNode({ data }) {
   const [showEditor, setShowEditor] = useState(false);
   const [killConfirmId, setKillConfirmId] = useState(null);
   const [vscodeError, setVscodeError] = useState(null);
+  const [termCollapsed, setTermCollapsed] = useState(false);
   const [cardWidth, setCardWidth] = useState(560);
   const [termHeight, setTermHeight] = useState(280);
   const resizeDrag = useRef(null);
@@ -184,6 +185,15 @@ export default function WorktreeNode({ data }) {
             {worktree.detached && <span className="badge badge--warn">detached</span>}
           </div>
           <div className="card-header-actions">
+            {sessions.length > 0 && (
+              <button
+                className="nodrag btn-icon"
+                onClick={() => setTermCollapsed((c) => !c)}
+                title={termCollapsed ? 'Show terminal' : 'Hide terminal'}
+              >
+                {termCollapsed ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+              </button>
+            )}
             <button className="nodrag btn-icon btn-icon--expand" onClick={() => setFullscreen(true)} title="Expand">
               <Maximize2 size={17} />
             </button>
@@ -237,12 +247,14 @@ export default function WorktreeNode({ data }) {
         {sessions.length > 0 ? (
           <div className="card-terminal-section">
             {sessionTabs}
-            {!fullscreen ? (
-              <div className="card-inline-terminal" style={{ height: termHeight }}>
-                {terminalInstances}
-              </div>
-            ) : (
-              <div className="card-terminal-placeholder">↗ Expanded</div>
+            {!termCollapsed && (
+              !fullscreen ? (
+                <div className="card-inline-terminal" style={{ height: termHeight }}>
+                  {terminalInstances}
+                </div>
+              ) : (
+                <div className="card-terminal-placeholder">↗ Expanded</div>
+              )
             )}
           </div>
         ) : (
