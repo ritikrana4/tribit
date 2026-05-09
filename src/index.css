@@ -1103,6 +1103,10 @@ body {
 
 /* ── Error page ──────────────────────────────────────── */
 
+.no-repo-screen { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px; }
+.no-repo-box { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.no-repo-box h2 { font-size: 20px; font-weight: 600; }
+.no-repo-box p { font-size: 13px; color: var(--text-2); line-height: 1.6; }
 .error-page { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 40px; text-align: center; }
 .error-icon { font-size: 44px; color: var(--amber); }
 .error-page h2 { font-size: 20px; font-weight: 600; }

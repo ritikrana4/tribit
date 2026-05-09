@@ -34,7 +34,7 @@ function saveRepos(repos) {
 // Register current repo on startup
 (function initRepos() {
   try {
-    const root = execSync('git rev-parse --show-toplevel', { cwd: REPO_DIR }).toString().trim();
+    const root = getMainRepoRoot(REPO_DIR);
     const repos = readRepos();
     if (!repos.find((r) => r.path === root)) {
       repos.push({ path: root, name: path.basename(root) });
@@ -49,12 +49,18 @@ const MAX_SCROLLBACK = 50000;
 
 /* ── Git helpers ─────────────────────────────────────────── */
 
+// Returns the main repo root, resolving linked worktrees back to the primary working tree.
+// `git rev-parse --show-toplevel` returns the *worktree* dir for linked worktrees, not the
+// main repo root, so we use --git-common-dir (which always points to the main .git) instead.
+function getMainRepoRoot(cwd) {
+  const commonDir = execSync('git rev-parse --git-common-dir', { cwd }).toString().trim();
+  const absCommonDir = path.isAbsolute(commonDir) ? commonDir : path.join(cwd, commonDir);
+  return path.dirname(absCommonDir).replace(/\//g, path.sep);
+}
+
 function getGitRoot() {
   try {
-    return execSync('git rev-parse --show-toplevel', { cwd: REPO_DIR })
-      .toString()
-      .trim()
-      .replace(/\//g, path.sep);
+    return getMainRepoRoot(REPO_DIR);
   } catch {
     return null;
   }
@@ -573,7 +579,7 @@ app.post('/api/repos', (req, res) => {
   if (!repoPath?.trim()) return res.status(400).json({ error: 'repoPath required' });
   const abs = path.resolve(repoPath.trim().replace(/^~/, os.homedir()));
   try {
-    const root = execSync('git rev-parse --show-toplevel', { cwd: abs }).toString().trim();
+    const root = getMainRepoRoot(abs);
     const repos = readRepos();
     const existing = repos.findIndex((r) => r.path === root);
     const entry = {

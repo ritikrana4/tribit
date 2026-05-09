@@ -304,6 +304,7 @@ export default function App() {
   const [worktrees, setWorktrees] = useState([]);
   const [repos, setRepos] = useState([]);
   const [fatalError, setFatalError] = useState(null);
+  const [noGitRepo, setNoGitRepo] = useState(false);
   const [creating, setCreating] = useState(false);
   const [showAddRepo, setShowAddRepo] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -369,9 +370,10 @@ export default function App() {
     try {
       const res = await fetch('/api/worktrees');
       if (!res.ok) {
-        let msg;
-        try { msg = (await res.json()).error; } catch { msg = `Server error ${res.status}`; }
-        setFatalError(msg);
+        let data;
+        try { data = await res.json(); } catch { data = {}; }
+        const msg = data.error || `Server error ${res.status}`;
+        if (!msg.includes('Not a git repository')) setFatalError(msg);
         return;
       }
       const data = await res.json();
@@ -450,6 +452,7 @@ export default function App() {
       setRepoName(data.repoName);
       setRepoRoot(data.root);
       setFatalError(null);
+      setNoGitRepo(false);
       fetchWorktrees();
     }
   }, [fetchWorktrees]);
@@ -539,7 +542,8 @@ export default function App() {
     fetch('/api/status')
       .then((r) => r.json())
       .then((d) => {
-        if (d.ok) setRepoName(d.repoName);
+        if (d.ok) { setRepoName(d.repoName); setNoGitRepo(false); }
+        else if (d.error?.includes('Not a git repository')) setNoGitRepo(true);
         else setFatalError(d.error);
       })
       .catch(() => setFatalError('Cannot connect to server'));
@@ -590,13 +594,52 @@ export default function App() {
     );
   }
 
+  if (noGitRepo) {
+    return (
+      <div className="app">
+        <Sidebar
+          repos={repos}
+          activeRepo={repoRoot}
+          expanded={sidebarExpanded}
+          onToggle={toggleSidebar}
+          onSwitch={handleSwitchRepo}
+          onAddRepo={() => setShowAddRepo(true)}
+          onRemoveRepo={handleRemoveRepo}
+          onSettings={() => setShowSettings(true)}
+        />
+        <div className="no-repo-screen">
+          <div className="no-repo-box">
+            <div className="error-icon">⚠</div>
+            <h2>No repository selected</h2>
+            <p>wooop needs a git repository to manage worktrees.</p>
+            {repos.length > 0 && (
+              <p className="hint">Select a repository from the sidebar, or add a new one.</p>
+            )}
+            <button className="btn-agent" onClick={() => setShowAddRepo(true)}>
+              Add Repository
+            </button>
+          </div>
+        </div>
+        {showAddRepo && (
+          <AddRepoModal
+            onClose={() => setShowAddRepo(false)}
+            onAdded={async (data) => {
+              setShowAddRepo(false);
+              await handleSwitchRepo(data.path);
+              fetchRepos();
+            }}
+          />
+        )}
+      </div>
+    );
+  }
+
   if (fatalError) {
     return (
       <div className="error-page">
         <div className="error-icon">⚠</div>
         <h2>Cannot start</h2>
         <p>{fatalError}</p>
-        <p className="hint">Make sure you ran <code>wooop</code> from inside a git repository.</p>
       </div>
     );
   }
