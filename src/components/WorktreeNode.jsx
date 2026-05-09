@@ -229,7 +229,7 @@ export default function WorktreeNode({ data }) {
                 <span className="stat-del">-{worktree.deletions}</span>
               </span>
               <button className="nodrag btn-changes" onClick={() => setShowDiff(true)}>Changes</button>
-              <button className="nodrag btn-changes btn-changes--editor" onClick={() => setShowEditor(true)}>
+              <button className="nodrag btn-changes btn-changes--editor" onClick={handleOpenVscode}>
                 <Code2 size={12} /> View In Editor
               </button>
             </>
@@ -237,7 +237,7 @@ export default function WorktreeNode({ data }) {
             <>
               <span className={`status-dot status-dot--${worktree.status}`} />
               <span className="meta-text">{worktree.status}</span>
-              <button className="nodrag btn-changes btn-changes--editor" onClick={() => setShowEditor(true)}>
+              <button className="nodrag btn-changes btn-changes--editor" onClick={handleOpenVscode}>
                 <Code2 size={12} /> View In Editor
               </button>
             </>
@@ -317,7 +317,7 @@ export default function WorktreeNode({ data }) {
                       <span className="stat-del">-{worktree.deletions}</span>
                     </span>
                     <button className="btn-changes" onClick={() => setShowDiff(true)}>Changes</button>
-                    <button className="btn-changes btn-changes--editor" onClick={() => setShowEditor(true)}>
+                    <button className="btn-changes btn-changes--editor" onClick={handleOpenVscode}>
                       <Code2 size={12} /> View In Editor
                     </button>
                   </>
@@ -325,7 +325,7 @@ export default function WorktreeNode({ data }) {
                   <>
                     <span className={`status-dot status-dot--${worktree.status}`} />
                     <span className="meta-text">{worktree.status}</span>
-                    <button className="btn-changes btn-changes--editor" onClick={() => setShowEditor(true)}>
+                    <button className="btn-changes btn-changes--editor" onClick={handleOpenVscode}>
                       <Code2 size={12} /> View In Editor
                     </button>
                   </>
