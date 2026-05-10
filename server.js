@@ -656,7 +656,7 @@ const ready = findAvailablePort(DEFAULT_PORT).then(
   (port) =>
     new Promise((resolve) => {
       const server = app.listen(port, () => {
-        console.log(`\n  wooop  →  http://localhost:${port}\n`);
+        console.log('dexo started');
         resolve(port);
       });
 

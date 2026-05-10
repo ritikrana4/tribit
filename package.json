@@ -16,6 +16,7 @@
     "build": "vite build",
     "prepare": "vite build",
     "start": "node server.js",
+    "restart": "pkill -f 'node.*dexo' 2>/dev/null || true; npm run build && node bin/dexo",
     "postinstall": "chmod +x node_modules/node-pty/prebuilds/darwin-arm64/spawn-helper 2>/dev/null || true"
   },
   "dependencies": {
