@@ -928,6 +928,8 @@ body {
   border-radius: var(--radius-sm);
   overflow: hidden;
   border: 1px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
 }
 
 .card-terminal-placeholder {

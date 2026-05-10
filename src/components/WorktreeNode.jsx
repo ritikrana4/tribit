@@ -24,6 +24,15 @@ export default function WorktreeNode({ data }) {
   const [cardWidth, setCardWidth] = useState(560);
   const [termHeight, setTermHeight] = useState(280);
   const resizeDrag = useRef(null);
+  const cardRef = useRef(null);
+
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const stopWheel = (e) => e.stopPropagation();
+    el.addEventListener('wheel', stopWheel, { passive: true });
+    return () => el.removeEventListener('wheel', stopWheel);
+  }, []);
 
   const sessions = worktree.sessions || [];
 
@@ -164,7 +173,7 @@ export default function WorktreeNode({ data }) {
 
   return (
     <>
-      <div className={`card ${worktree.isMain ? 'card--main' : ''}`} style={{ width: cardWidth }}>
+      <div ref={cardRef} className={`card ${worktree.isMain ? 'card--main' : ''}`} style={{ width: cardWidth }}>
         <div className="card-header">
           <div className="card-title">
             <button
@@ -249,7 +258,7 @@ export default function WorktreeNode({ data }) {
             {sessionTabs}
             {!termCollapsed && (
               !fullscreen ? (
-                <div className="card-inline-terminal" style={{ height: termHeight }}>
+                <div className="nodrag nopan card-inline-terminal" style={{ height: termHeight }} onMouseDown={(e) => e.stopPropagation()}>
                   {terminalInstances}
                 </div>
               ) : (

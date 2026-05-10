@@ -1,10 +1,10 @@
 {
-  "name": "dexo",
+  "name": "tribit",
   "version": "1.0.0",
   "description": "Git worktree manager with web UI and AI agent integration",
   "main": "server.js",
   "bin": {
-    "dexo": "./bin/dexo"
+    "tribit": "./bin/tribit"
   },
   "files": [
     "bin",
@@ -16,7 +16,7 @@
     "build": "vite build",
     "prepare": "vite build",
     "start": "node server.js",
-    "restart": "pkill -f 'node.*dexo' 2>/dev/null || true; npm run build && node bin/dexo",
+    "restart": "pkill -f 'node.*tribit' 2>/dev/null || true; npm run build && node bin/tribit",
     "postinstall": "chmod +x node_modules/node-pty/prebuilds/darwin-arm64/spawn-helper 2>/dev/null || true"
   },
   "dependencies": {

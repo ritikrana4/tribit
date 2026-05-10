@@ -723,6 +723,7 @@ export default function App() {
             fitViewOptions={{ padding: 0.25 }}
             deleteKeyCode={null}
             proOptions={{ hideAttribution: true }}
+            preventScrolling={true}
           >
             <FlowController apiRef={flowApiRef} />
             <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#1e1e1e" />
