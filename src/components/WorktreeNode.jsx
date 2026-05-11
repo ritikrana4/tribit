@@ -8,7 +8,7 @@ import MonacoPanel from './MonacoPanel.jsx';
 export default function WorktreeNode({ data }) {
   const {
     onDelete, onOpenCopilot, onKillTerminal, onNewSession,
-    agent = 'claude', ...worktree
+    agent = 'claude', theme = 'dark', ...worktree
   } = data;
 
   const [phase, setPhase] = useState('idle');
@@ -168,7 +168,7 @@ export default function WorktreeNode({ data }) {
   );
 
   const terminalInstances = sessions.map((s) => (
-    <TerminalView key={s.sessionId} sessionId={s.sessionId} isVisible={s.sessionId === activeSessionId} />
+    <TerminalView key={s.sessionId} sessionId={s.sessionId} isVisible={s.sessionId === activeSessionId} theme={theme} />
   ));
 
   return (

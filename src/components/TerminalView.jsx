@@ -3,12 +3,42 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 
-export default function TerminalView({ sessionId, isVisible }) {
+const TERM_DARK = {
+  background: '#0a0a0a', foreground: '#e0e0e0',
+  cursor: '#7c5cfc', cursorAccent: '#0a0a0a',
+  selectionBackground: 'rgba(124,92,252,0.3)',
+  black: '#1a1a1a', brightBlack: '#555555',
+  red: '#f87171', brightRed: '#fca5a5',
+  green: '#22c55e', brightGreen: '#4ade80',
+  yellow: '#f59e0b', brightYellow: '#fcd34d',
+  blue: '#7c5cfc', brightBlue: '#a78bfa',
+  magenta: '#c084fc', brightMagenta: '#d8b4fe',
+  cyan: '#22d3ee', brightCyan: '#67e8f9',
+  white: '#e6e6e6', brightWhite: '#ffffff',
+};
+
+const TERM_LIGHT = {
+  background: '#f0f0f7', foreground: '#1c1c2e',
+  cursor: '#7c5cfc', cursorAccent: '#ffffff',
+  selectionBackground: 'rgba(124,92,252,0.2)',
+  black: '#000000', brightBlack: '#686868',
+  red: '#cd3131', brightRed: '#f14c4c',
+  green: '#00bc00', brightGreen: '#23d18b',
+  yellow: '#949800', brightYellow: '#b5ba00',
+  blue: '#0451a5', brightBlue: '#2472c8',
+  magenta: '#bc05bc', brightMagenta: '#bc8eea',
+  cyan: '#0598bc', brightCyan: '#29b8db',
+  white: '#555555', brightWhite: '#aeafad',
+};
+
+export default function TerminalView({ sessionId, isVisible, theme = 'dark' }) {
   const termRef = useRef(null);
   const xtermRef = useRef(null);
   const fitRef = useRef(null);
   const wsRef = useRef(null);
   const mountedRef = useRef(true);
+  const themeRef = useRef(theme);
+  themeRef.current = theme;
 
   const connect = useCallback(() => {
     if (!sessionId) return;
@@ -47,14 +77,7 @@ export default function TerminalView({ sessionId, isVisible }) {
     const term = new Terminal({
       fontFamily: "'Cascadia Code', 'Fira Code', 'SF Mono', monospace",
       fontSize: 13,
-      theme: {
-        background: '#0a0a0a',
-        foreground: '#e0e0e0',
-        cursor: '#7c5cfc',
-        selectionBackground: 'rgba(124,92,252,0.3)',
-        black: '#1a1a1a', red: '#f87171', green: '#22c55e', yellow: '#f59e0b',
-        blue: '#7c5cfc', magenta: '#c084fc', cyan: '#22d3ee', white: '#e6e6e6',
-      },
+      theme: themeRef.current === 'light' ? TERM_LIGHT : TERM_DARK,
       cursorBlink: true,
       scrollback: 5000,
       allowProposedApi: true,
@@ -90,6 +113,12 @@ export default function TerminalView({ sessionId, isVisible }) {
       term.dispose();
     };
   }, [connect, sessionId]);
+
+  // Live theme update without re-mounting the terminal
+  useEffect(() => {
+    if (!xtermRef.current) return;
+    xtermRef.current.options.theme = theme === 'light' ? TERM_LIGHT : TERM_DARK;
+  }, [theme]);
 
   useEffect(() => {
     if (isVisible) {

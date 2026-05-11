@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { RefreshCw, X, FolderOpen, Search, PowerOff, Plus, StopCircle, Trash2, Folder } from 'lucide-react';
+import { RefreshCw, X, FolderOpen, Search, PowerOff, Plus, StopCircle, Trash2, Folder, ArrowLeft, ChevronRight, Bot, Terminal, Palette, Info, Mail, Zap, Sun, Moon } from 'lucide-react';
 import ReactFlow, {
   Background,
   BackgroundVariant,
@@ -192,7 +192,8 @@ function AddRepoModal({ onClose, onAdded }) {
   );
 }
 
-function SettingsModal({ agent, onAgentChange, onClose, onShutdown }) {
+function SettingsModal({ agent, onAgentChange, onClose, onShutdown, theme, onThemeChange }) {
+  const [view, setView] = useState(null);
   const [sessions, setSessions] = useState([]);
 
   const fetchSessions = useCallback(async () => {
@@ -204,10 +205,12 @@ function SettingsModal({ agent, onAgentChange, onClose, onShutdown }) {
   }, []);
 
   useEffect(() => {
-    const h = (e) => { if (e.key === 'Escape') onClose(); };
+    const h = (e) => {
+      if (e.key === 'Escape') { if (view) setView(null); else onClose(); }
+    };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
-  }, [onClose]);
+  }, [onClose, view]);
 
   useEffect(() => { fetchSessions(); }, [fetchSessions]);
 
@@ -225,73 +228,218 @@ function SettingsModal({ agent, onAgentChange, onClose, onShutdown }) {
     fetchSessions();
   };
 
+  const VIEW_LABELS = { agent: 'Agent', sessions: 'Sessions', appearance: 'Appearance', about: 'About' };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal modal--settings" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <span className="modal-title">Settings</span>
-          <button className="btn-icon modal-close" onClick={onClose}><X size={16} /></button>
-        </div>
-        <div className="modal-body">
+      <div className="modal sv2-modal" onClick={(e) => e.stopPropagation()}>
 
-          {/* Agent */}
-          <div className="settings-row">
-            <span className="settings-label">AI Agent</span>
-            <div className="agent-toggle">
-              <button className={`agent-btn ${agent === 'claude' ? 'agent-btn--active' : ''}`} onClick={() => onAgentChange('claude')}>Claude</button>
-              <button className={`agent-btn ${agent === 'copilot' ? 'agent-btn--active' : ''}`} onClick={() => onAgentChange('copilot')}>Copilot</button>
-            </div>
-          </div>
-
-          {/* Terminal sessions */}
-          <div className="settings-section">
-            <div className="settings-section-header">
-              <span className="settings-label">
-                Terminal Sessions
-                {sessions.length > 0 && <span className="settings-count">{sessions.length}</span>}
-              </span>
-              {sessions.length > 0 && (
-                <button className="btn-danger btn-danger--sm" onClick={killAll} title="Kill all sessions">
-                  <Trash2 size={12} /> Kill All
-                </button>
+        {/* Header / breadcrumb */}
+        <div className="sv2-header">
+          <div className="sv2-header-left">
+            {view && (
+              <button className="sv2-back" onClick={() => setView(null)}>
+                <ArrowLeft size={14} />
+              </button>
+            )}
+            <div className="sv2-breadcrumb">
+              {view ? (
+                <>
+                  <span className="sv2-crumb sv2-crumb--parent" onClick={() => setView(null)}>Settings</span>
+                  <ChevronRight size={11} className="sv2-crumb-sep" />
+                  <span className="sv2-crumb sv2-crumb--current">{VIEW_LABELS[view]}</span>
+                </>
+              ) : (
+                <span className="sv2-crumb sv2-crumb--current">Settings</span>
               )}
             </div>
-
-            {sessions.length === 0 ? (
-              <div className="settings-empty">No active terminal sessions</div>
-            ) : (
-              <div className="session-list-settings">
-                {sessions.map((s) => (
-                  <div key={s.sessionId} className="session-list-item">
-                    <div className="session-list-info">
-                      <span className="session-list-title">{s.title}</span>
-                      <span className="session-list-meta">PID {s.pid} · {s.wtPath.split('/').pop()}</span>
-                    </div>
-                    <button
-                      className="btn-icon btn-icon--sm"
-                      onClick={() => killSession(s.sessionId)}
-                      title="Kill session"
-                    >
-                      <StopCircle size={13} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
-
-          {/* Shutdown */}
-          <div className="settings-row settings-row--danger">
-            <div>
-              <span className="settings-label">Shut down server</span>
-              <span className="settings-hint">Kills all terminal sessions and stops wooop.</span>
-            </div>
-            <button className="btn-danger" onClick={onShutdown}>Shut down</button>
-          </div>
-
+          <button className="btn-icon modal-close" onClick={onClose}><X size={16} /></button>
         </div>
-        <div className="modal-footer">
-          <button className="btn-primary" onClick={onClose}>Done</button>
+
+        {/* Body */}
+        <div className="sv2-body">
+
+          {/* ── Home ── */}
+          {!view && (
+            <div className="sv2-home">
+              <div className="sv2-nav-group">
+
+                <button className="sv2-nav-item" onClick={() => setView('agent')}>
+                  <span className="sv2-nav-icon"><Bot size={16} /></span>
+                  <div className="sv2-nav-text">
+                    <span className="sv2-nav-title">Agent</span>
+                    <span className="sv2-nav-sub">AI model for your worktrees</span>
+                  </div>
+                  <span className="sv2-nav-value">{agent === 'claude' ? 'Claude' : 'Copilot'}</span>
+                  <ChevronRight size={13} className="sv2-nav-arrow" />
+                </button>
+
+                <button className="sv2-nav-item" onClick={() => setView('sessions')}>
+                  <span className="sv2-nav-icon"><Terminal size={16} /></span>
+                  <div className="sv2-nav-text">
+                    <span className="sv2-nav-title">Sessions</span>
+                    <span className="sv2-nav-sub">Manage active terminal sessions</span>
+                  </div>
+                  {sessions.length > 0 && (
+                    <span className="sv2-nav-badge">{sessions.length}</span>
+                  )}
+                  <ChevronRight size={13} className="sv2-nav-arrow" />
+                </button>
+
+                <button className="sv2-nav-item" onClick={() => setView('appearance')}>
+                  <span className="sv2-nav-icon"><Palette size={16} /></span>
+                  <div className="sv2-nav-text">
+                    <span className="sv2-nav-title">Appearance</span>
+                    <span className="sv2-nav-sub">Theme and display preferences</span>
+                  </div>
+                  <span className="sv2-nav-value">{theme === 'light' ? 'Light' : 'Dark'}</span>
+                  <ChevronRight size={13} className="sv2-nav-arrow" />
+                </button>
+
+                <button className="sv2-nav-item" onClick={() => setView('about')}>
+                  <span className="sv2-nav-icon"><Info size={16} /></span>
+                  <div className="sv2-nav-text">
+                    <span className="sv2-nav-title">About</span>
+                    <span className="sv2-nav-sub">Version, feedback &amp; contact</span>
+                  </div>
+                  <ChevronRight size={13} className="sv2-nav-arrow" />
+                </button>
+
+              </div>
+
+              <div className="sv2-danger-zone">
+                <button className="sv2-shutdown-btn" onClick={onShutdown}>
+                  <PowerOff size={13} />
+                  Shut down server
+                </button>
+                <span className="sv2-danger-hint">Kills all sessions and stops wooop</span>
+              </div>
+            </div>
+          )}
+
+          {/* ── Agent ── */}
+          {view === 'agent' && (
+            <div className="sv2-section">
+              <div className="sv2-field">
+                <span className="sv2-field-label">AI Agent</span>
+                <span className="sv2-field-sub">The model that launches when you open a worktree terminal</span>
+                <div className="sv2-agent-options">
+                  <button
+                    className={`sv2-agent-opt ${agent === 'claude' ? 'sv2-agent-opt--active' : ''}`}
+                    onClick={() => onAgentChange('claude')}
+                  >
+                    <span className="sv2-agent-name">Claude</span>
+                    <span className="sv2-agent-by">Anthropic</span>
+                  </button>
+                  <button
+                    className={`sv2-agent-opt ${agent === 'copilot' ? 'sv2-agent-opt--active' : ''}`}
+                    onClick={() => onAgentChange('copilot')}
+                  >
+                    <span className="sv2-agent-name">Copilot</span>
+                    <span className="sv2-agent-by">GitHub</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Sessions ── */}
+          {view === 'sessions' && (
+            <div className="sv2-section">
+              <div className="sv2-sessions-header">
+                <span className="sv2-sessions-count">
+                  {sessions.length === 0 ? 'No active sessions' : `${sessions.length} active`}
+                </span>
+                {sessions.length > 0 && (
+                  <button className="btn-danger btn-danger--sm" onClick={killAll}>
+                    <Trash2 size={12} /> Kill All
+                  </button>
+                )}
+              </div>
+              {sessions.length === 0 ? (
+                <div className="sv2-empty">
+                  <Terminal size={28} className="sv2-empty-icon" />
+                  <span>No terminal sessions running</span>
+                </div>
+              ) : (
+                <div className="sv2-session-list">
+                  {sessions.map((s) => (
+                    <div key={s.sessionId} className="sv2-session-item">
+                      <span className="sv2-session-dot" />
+                      <div className="sv2-session-info">
+                        <span className="sv2-session-title">{s.title}</span>
+                        <span className="sv2-session-meta">PID {s.pid} · {s.wtPath.split('/').pop()}</span>
+                      </div>
+                      <button
+                        className="btn-icon btn-icon--sm"
+                        onClick={() => killSession(s.sessionId)}
+                        title="Kill session"
+                      >
+                        <StopCircle size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Appearance ── */}
+          {view === 'appearance' && (
+            <div className="sv2-section">
+              <div className="sv2-field">
+                <span className="sv2-field-label">Theme</span>
+                <span className="sv2-field-sub">Choose your preferred color scheme</span>
+                <div className="sv2-theme-options">
+                  {['dark', 'light'].map((t) => (
+                    <button
+                      key={t}
+                      className={`sv2-theme-opt ${theme === t ? 'sv2-theme-opt--active' : ''}`}
+                      onClick={() => onThemeChange(t)}
+                    >
+                      <div className={`sv2-theme-preview sv2-theme-preview--${t}`}>
+                        <div className="sv2-tp-bar" />
+                        <div className="sv2-tp-lines">
+                          <div className={`sv2-tp-line sv2-tp-line--accent-${t}`} />
+                          <div className="sv2-tp-line sv2-tp-line--long" />
+                          <div className="sv2-tp-line sv2-tp-line--short" />
+                          <div className="sv2-tp-line sv2-tp-line--med" />
+                        </div>
+                      </div>
+                      <div className="sv2-theme-footer">
+                        <span className="sv2-theme-label">{t === 'dark' ? 'Dark' : 'Light'}</span>
+                        {theme === t && <span className="sv2-theme-tick">✓</span>}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── About ── */}
+          {view === 'about' && (
+            <div className="sv2-about">
+              <div className="sv2-about-logo">
+                <Zap size={20} />
+                <span>wooop</span>
+              </div>
+              <span className="sv2-about-badge">Beta</span>
+              <p className="sv2-about-tagline">
+                Thanks for trying wooop! We're actively building and improving —
+                your early support means a lot to us.
+              </p>
+              <div className="sv2-about-divider" />
+              <div className="sv2-about-contact">
+                <Mail size={13} className="sv2-about-contact-icon" />
+                <span>Questions or feedback?</span>
+                <a href="mailto:hello@wooop.dev" className="sv2-about-link">hello@wooop.dev</a>
+              </div>
+              <span className="sv2-about-version">v0.1.0-beta</span>
+            </div>
+          )}
+
         </div>
       </div>
     </div>
@@ -322,6 +470,18 @@ export default function App() {
   const searchRef = useRef(null);
   const pendingFocusRef = useRef(null);
   const [allWorktrees, setAllWorktrees] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [theme, setTheme] = useState(() => localStorage.getItem('wooop-theme') || 'dark');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  const handleThemeChange = useCallback((t) => {
+    setTheme(t);
+    localStorage.setItem('wooop-theme', t);
+    document.documentElement.setAttribute('data-theme', t);
+  }, []);
 
   const handleShutdown = useCallback(async () => {
     setShowSettings(false);
@@ -353,6 +513,14 @@ export default function App() {
     if (res.ok) {
       const data = await res.json();
       setAllWorktrees(data.worktrees);
+    }
+  }, []);
+
+  const fetchSessions = useCallback(async () => {
+    const res = await fetch('/api/sessions');
+    if (res.ok) {
+      const data = await res.json();
+      setSessions(data.sessions || []);
     }
   }, []);
 
@@ -521,6 +689,7 @@ export default function App() {
         data: {
           ...wt,
           agent,
+          theme,
           onDelete: handleDelete,
           onOpenCopilot: handleOpenCopilot,
           onKillTerminal: handleKillTerminal,
@@ -528,7 +697,7 @@ export default function App() {
         },
       }));
     });
-  }, [worktrees, agent, handleDelete, handleOpenCopilot, handleKillTerminal, handleNewSession, setNodes]);
+  }, [worktrees, agent, theme, handleDelete, handleOpenCopilot, handleKillTerminal, handleNewSession, setNodes]);
 
   const handleNodeDragStop = useCallback((_event, node) => {
     fetch('/api/positions', {
@@ -551,9 +720,10 @@ export default function App() {
     fetchWorktrees();
     fetchRepos();
     fetchAllWorktrees();
-    const t = setInterval(fetchWorktrees, 5000);
+    fetchSessions();
+    const t = setInterval(() => { fetchWorktrees(); fetchSessions(); }, 5000);
     return () => clearInterval(t);
-  }, [fetchWorktrees, fetchRepos, fetchAllWorktrees]);
+  }, [fetchWorktrees, fetchRepos, fetchAllWorktrees, fetchSessions]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -606,6 +776,9 @@ export default function App() {
           onAddRepo={() => setShowAddRepo(true)}
           onRemoveRepo={handleRemoveRepo}
           onSettings={() => setShowSettings(true)}
+          allWorktrees={allWorktrees}
+          sessions={sessions}
+          onNavigate={navigateToNode}
         />
         <div className="no-repo-screen">
           <div className="no-repo-box">
@@ -655,6 +828,9 @@ export default function App() {
         onAddRepo={() => setShowAddRepo(true)}
         onRemoveRepo={handleRemoveRepo}
         onSettings={() => setShowSettings(true)}
+        allWorktrees={allWorktrees}
+        sessions={sessions}
+        onNavigate={navigateToNode}
       />
 
       <div className="app-main">
@@ -710,6 +886,13 @@ export default function App() {
             {worktrees.length} worktree{worktrees.length !== 1 ? 's' : ''}
           </span>
           <button className="btn-refresh" onClick={fetchWorktrees} title="Refresh"><RefreshCw size={14} /></button>
+          <button
+            className="btn-theme-toggle"
+            onClick={() => handleThemeChange(theme === 'dark' ? 'light' : 'dark')}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+          </button>
         </header>
 
         <div className="flow-wrap">
@@ -726,7 +909,7 @@ export default function App() {
             preventScrolling={true}
           >
             <FlowController apiRef={flowApiRef} />
-            <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#1e1e1e" />
+            <Background variant={BackgroundVariant.Dots} gap={22} size={1} color={theme === 'light' ? '#d4d4d8' : '#1e1e1e'} />
             <Controls showInteractive={false} />
             <Panel position="bottom-center">
               <button className="btn-add-float" onClick={() => setCreating(true)}>
@@ -754,6 +937,8 @@ export default function App() {
           onAgentChange={handleAgentChange}
           onClose={() => setShowSettings(false)}
           onShutdown={handleShutdown}
+          theme={theme}
+          onThemeChange={handleThemeChange}
         />
       )}
     </div>
