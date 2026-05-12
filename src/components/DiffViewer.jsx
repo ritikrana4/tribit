@@ -1,8 +1,30 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Minimize2, Copy, Trash2, MessageSquare, Plus } from 'lucide-react';
+import { Minimize2, ChevronRight, ChevronDown, File, Folder, FolderOpen } from 'lucide-react';
+import Editor, { DiffEditor } from '@monaco-editor/react';
 
-/* ── Diff parser ──────────────────────────────────────────── */
+function getLang(filename) {
+  const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+  return {
+    js: 'javascript', jsx: 'javascript', mjs: 'javascript', cjs: 'javascript',
+    ts: 'typescript', tsx: 'typescript', mts: 'typescript',
+    py: 'python', pyw: 'python',
+    rs: 'rust', go: 'go', java: 'java',
+    cpp: 'cpp', cc: 'cpp', cxx: 'cpp', c: 'c', h: 'c', hpp: 'cpp',
+    cs: 'csharp', rb: 'ruby', php: 'php',
+    html: 'html', htm: 'html', css: 'css', scss: 'scss', less: 'less',
+    json: 'json', json5: 'json',
+    yaml: 'yaml', yml: 'yaml',
+    md: 'markdown', mdx: 'markdown',
+    sh: 'shell', bash: 'shell', zsh: 'shell', fish: 'shell',
+    sql: 'sql', xml: 'xml', svg: 'xml',
+    env: 'plaintext', txt: 'plaintext', log: 'plaintext',
+    graphql: 'graphql', gql: 'graphql',
+    dockerfile: 'dockerfile', toml: 'ini',
+  }[ext] ?? 'plaintext';
+}
+
+/* ── Diff parser (used for file list + stats only) ────────── */
 
 function parseDiff(raw) {
   if (!raw?.trim()) return [];
@@ -26,153 +48,68 @@ function parseDiff(raw) {
     }
 
     if (isBinary) {
-      files.push({ path: newPath || oldPath, isBinary: true, hunks: [], additions: 0, deletions: 0 });
+      files.push({ path: newPath || oldPath, isBinary: true, additions: 0, deletions: 0 });
       continue;
     }
 
-    const hunks = [];
     let fileAdd = 0, fileDel = 0;
-
     while (i < lines.length) {
       if (!lines[i].startsWith('@@')) { i++; continue; }
-      const m = lines[i].match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)/);
-      if (!m) { i++; continue; }
-      const oldStart = parseInt(m[1]);
-      const newStart = parseInt(m[2]);
-      const context = m[3]?.trim() || '';
       i++;
-
-      let oldLn = oldStart, newLn = newStart;
-      const typed = [];
-
       while (i < lines.length && !lines[i].startsWith('@@') && !lines[i].startsWith('diff --git')) {
         const rl = lines[i++];
-        if (rl.startsWith('-')) {
-          typed.push({ type: 'removed', oldLn: oldLn++, content: rl.slice(1) });
-          fileDel++;
-        } else if (rl.startsWith('+')) {
-          typed.push({ type: 'added', newLn: newLn++, content: rl.slice(1) });
-          fileAdd++;
-        } else if (rl.startsWith(' ')) {
-          typed.push({ type: 'context', oldLn: oldLn++, newLn: newLn++, content: rl.slice(1) });
-        }
+        if (rl.startsWith('-')) fileDel++;
+        else if (rl.startsWith('+')) fileAdd++;
       }
-
-      hunks.push({ oldStart, newStart, context, rows: toSideBySide(typed) });
     }
 
-    files.push({ path: newPath || oldPath, isBinary: false, hunks, additions: fileAdd, deletions: fileDel });
+    files.push({ path: newPath || oldPath, isBinary: false, additions: fileAdd, deletions: fileDel });
   }
   return files;
 }
 
-function toSideBySide(lines) {
-  const rows = [];
-  let rem = [], add = [];
+/* ── File tree (Project tab) ──────────────────────────────── */
 
-  const flush = () => {
-    const n = Math.max(rem.length, add.length);
-    for (let i = 0; i < n; i++) rows.push({ left: rem[i] || null, right: add[i] || null });
-    rem = []; add = [];
-  };
+function FileTreeNode({ node, depth, onFileClick, activeFilePath }) {
+  const [open, setOpen] = useState(depth === 0);
 
-  for (const l of lines) {
-    if (l.type === 'context') { flush(); rows.push({ left: l, right: l }); }
-    else if (l.type === 'removed') rem.push(l);
-    else if (l.type === 'added') add.push(l);
+  if (node.type === 'file') {
+    return (
+      <button
+        className={`dv-tree-file ${node.path === activeFilePath ? 'dv-tree-file--active' : ''}`}
+        style={{ paddingLeft: 10 + depth * 14 }}
+        onClick={() => onFileClick(node)}
+        title={node.path}
+      >
+        <File size={13} className="dv-tree-icon" />
+        <span className="dv-tree-name">{node.name}</span>
+      </button>
+    );
   }
-  flush();
-  return rows;
-}
-
-/* ── Comment form ─────────────────────────────────────────── */
-
-function CommentForm({ onSave, onCancel }) {
-  const [text, setText] = useState('');
-  const ref = useRef(null);
-  useEffect(() => { ref.current?.focus(); }, []);
 
   return (
-    <div className="dv-comment-form">
-      <textarea
-        ref={ref}
-        className="dv-comment-input"
-        placeholder="Add a comment… (Enter to save, Shift+Enter for newline)"
-        value={text}
-        rows={2}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (text.trim()) onSave(text); }
-          if (e.key === 'Escape') onCancel();
-        }}
-      />
-      <div className="dv-comment-form-actions">
-        <button className="dv-btn-primary" onClick={() => text.trim() && onSave(text)} disabled={!text.trim()}>Save</button>
-        <button className="dv-btn-ghost" onClick={onCancel}>Cancel</button>
-      </div>
-    </div>
-  );
-}
-
-/* ── DiffRow ──────────────────────────────────────────────── */
-
-function DiffRow({ row, fileComments, selectedFile, addingComment, setAddingComment, addComment, removeComment }) {
-  const leftLn = row.left?.oldLn;
-  const rightLn = row.right?.newLn;
-  const isCtx = row.left?.type === 'context';
-
-  const leftBg = isCtx ? '' : row.left ? 'dv-removed' : 'dv-empty';
-  const rightBg = isCtx ? '' : row.right ? 'dv-added' : 'dv-empty';
-
-  const rowComments = fileComments.filter((c) => c.side === 'right' && c.lineNo === rightLn);
-
-  const isAddingR = addingComment?.filePath === selectedFile && addingComment?.side === 'right' && rightLn != null && addingComment?.lineNo === rightLn;
-
-  return (
-    <div className="dv-row-group">
-      <div className="dv-row">
-        {/* LEFT side — no overflow:hidden so buttons aren't clipped */}
-        <div className={`dv-side dv-side--left ${leftBg}`}>
-          <span className="dv-ln">{row.left ? leftLn : ''}</span>
-          <span className="dv-glyph">{row.left && !isCtx ? '-' : ' '}</span>
-          <code className="dv-code">{row.left?.content ?? ''}</code>
-        </div>
-        {/* RIGHT side */}
-        <div className={`dv-side dv-side--right ${rightBg}`}>
-          <span className="dv-ln">{row.right ? rightLn : ''}</span>
-          <span className="dv-glyph">{row.right && !isCtx ? '+' : ' '}</span>
-          <code className="dv-code">{row.right?.content ?? ''}</code>
-        </div>
-      </div>
-
-      {/* Comment button: only on right side (new changes) */}
-      {row.right && (
-        <button
-          className="dv-add-btn dv-add-btn--right"
-          onClick={() => setAddingComment({ filePath: selectedFile, side: 'right', lineNo: rightLn })}
-          title="Add comment"
-        ><Plus size={9} /></button>
-      )}
-
-      {/* Inline comment form */}
-      {isAddingR && (
-        <div className="dv-comment-zone dv-comment-zone--right">
-          <CommentForm
-            onSave={(text) => addComment(selectedFile, 'right', rightLn, text)}
-            onCancel={() => setAddingComment(null)}
-          />
-        </div>
-      )}
-
-      {/* Existing comments */}
-      {rowComments.map((c) => (
-        <div key={c.id} className="dv-comment-zone dv-comment-zone--right">
-          <div className="dv-comment-bubble">
-            <MessageSquare size={11} className="dv-comment-icon" />
-            <span className="dv-comment-text">{c.text}</span>
-            <button className="dv-comment-remove" onClick={() => removeComment(c.id)} title="Remove"><X size={11} /></button>
-          </div>
-        </div>
+    <div>
+      <button
+        className="dv-tree-dir"
+        style={{ paddingLeft: 10 + depth * 14 }}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <span className="dv-tree-chevron">
+          {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        </span>
+        {open
+          ? <FolderOpen size={13} className="dv-tree-icon dv-tree-icon--folder" />
+          : <Folder size={13} className="dv-tree-icon dv-tree-icon--folder" />}
+        <span className="dv-tree-name">{node.name}</span>
+      </button>
+      {open && node.children?.map((child) => (
+        <FileTreeNode
+          key={child.path}
+          node={child}
+          depth={depth + 1}
+          onFileClick={onFileClick}
+          activeFilePath={activeFilePath}
+        />
       ))}
     </div>
   );
@@ -180,15 +117,40 @@ function DiffRow({ row, fileComments, selectedFile, addingComment, setAddingComm
 
 /* ── Main DiffViewer ──────────────────────────────────────── */
 
+const MONACO_OPTIONS = {
+  fontSize: 13,
+  fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
+  minimap: { enabled: false },
+  scrollBeyondLastLine: false,
+  padding: { top: 12 },
+  lineNumbers: 'on',
+  renderLineHighlight: 'line',
+  wordWrap: 'off',
+  contextmenu: false,
+};
+
 export default function DiffViewer({ repoPath, branch, onClose }) {
+  const [activeTab, setActiveTab] = useState('changes');
+  const monacoTheme = (localStorage.getItem('tribit-theme') || 'dark') === 'light' ? 'light' : 'vs-dark';
+
+  // Changes tab
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [files, setFiles] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [comments, setComments] = useState([]);
-  const [addingComment, setAddingComment] = useState(null);
-  const [toast, setToast] = useState(false);
+  const [diffOriginal, setDiffOriginal] = useState('');
+  const [diffModified, setDiffModified] = useState('');
+  const [diffContentLoading, setDiffContentLoading] = useState(false);
 
+  // Project tab
+  const [fileTree, setFileTree] = useState([]);
+  const [fileTreeLoading, setFileTreeLoading] = useState(false);
+  const [fileTreeError, setFileTreeError] = useState(null);
+  const [selectedTreePath, setSelectedTreePath] = useState(null);
+  const [treeFileContent, setTreeFileContent] = useState(null);
+  const [treeFileLoading, setTreeFileLoading] = useState(false);
+
+  // Load changed-file list
   useEffect(() => {
     fetch(`/api/diff?repoPath=${encodeURIComponent(repoPath)}`)
       .then((r) => r.json())
@@ -202,59 +164,61 @@ export default function DiffViewer({ repoPath, branch, onClose }) {
       .catch((e) => { setError(e.message); setLoading(false); });
   }, [repoPath]);
 
+  // Load original + modified when selected file changes
+  useEffect(() => {
+    if (!selectedFile || activeTab !== 'changes') return;
+    setDiffContentLoading(true);
+    const fullPath = `${repoPath}/${selectedFile}`;
+    Promise.all([
+      fetch(`/api/git/original?repoPath=${encodeURIComponent(repoPath)}&filePath=${encodeURIComponent(selectedFile)}`).then((r) => r.json()),
+      fetch(`/api/files/read?filePath=${encodeURIComponent(fullPath)}`).then((r) => r.json()),
+    ]).then(([orig, mod]) => {
+      setDiffOriginal(orig.content ?? '');
+      setDiffModified(mod.content ?? '');
+      setDiffContentLoading(false);
+    }).catch(() => {
+      setDiffOriginal('');
+      setDiffModified('');
+      setDiffContentLoading(false);
+    });
+  }, [selectedFile, repoPath, activeTab]);
+
+  // Load project file tree
+  useEffect(() => {
+    if (activeTab !== 'project') return;
+    if (fileTree.length > 0 || fileTreeLoading) return;
+    setFileTreeLoading(true);
+    setFileTreeError(null);
+    fetch(`/api/files/tree?dirPath=${encodeURIComponent(repoPath)}`)
+      .then((r) => r.json())
+      .then((data) => { setFileTree(data.tree || []); setFileTreeLoading(false); })
+      .catch((e) => { setFileTreeError(e.message); setFileTreeLoading(false); });
+  }, [activeTab, repoPath, fileTree.length, fileTreeLoading]);
+
   useEffect(() => {
     const h = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, [onClose]);
 
-  const file = files.find((f) => f.path === selectedFile) || null;
+  const handleTreeFileClick = useCallback(async (node) => {
+    if (selectedTreePath === node.path) return;
+    setSelectedTreePath(node.path);
+    setTreeFileContent(null);
+    setTreeFileLoading(true);
+    try {
+      const res = await fetch(`/api/files/read?filePath=${encodeURIComponent(node.path)}`);
+      const data = await res.json();
+      setTreeFileContent(data.error ? { error: data.error } : { name: node.name, content: data.content });
+    } catch (e) {
+      setTreeFileContent({ error: e.message });
+    }
+    setTreeFileLoading(false);
+  }, [selectedTreePath]);
+
   const totalAdd = files.reduce((s, f) => s + f.additions, 0);
   const totalDel = files.reduce((s, f) => s + f.deletions, 0);
-  const fileComments = comments.filter((c) => c.filePath === selectedFile);
-
-  const addComment = useCallback((filePath, side, lineNo, text) => {
-    if (!text.trim()) return;
-    setComments((prev) => [...prev, { id: `${Date.now()}-${Math.random()}`, filePath, side, lineNo, text }]);
-    setAddingComment(null);
-  }, []);
-
-  const removeComment = useCallback((id) => setComments((prev) => prev.filter((c) => c.id !== id)), []);
-
-  const copyComments = () => {
-    if (!comments.length) return;
-    const parts = comments.map((c) => {
-      const f = files.find((f) => f.path === c.filePath);
-      const contextLines = [];
-      if (f) {
-        const allRows = f.hunks.flatMap((h) => h.rows);
-        const idx = allRows.findIndex((r) => r.right?.newLn === c.lineNo);
-        if (idx >= 0) {
-          const start = Math.max(0, idx - 4);
-          const end = Math.min(allRows.length - 1, idx + 4);
-          for (let i = start; i <= end; i++) {
-            const cell = allRows[i].right;
-            const ln = cell?.newLn ?? '';
-            const marker = i === idx ? '>>>' : '   ';
-            const lnStr = String(ln).padStart(4, ' ');
-            contextLines.push(`${marker} ${lnStr}  ${cell?.content ?? ''}`);
-          }
-        }
-      }
-      return [
-        `File: ${c.filePath}`,
-        `Line ${c.lineNo} (new version):`,
-        '```',
-        contextLines.join('\n'),
-        '```',
-        `Review comment: ${c.text}`,
-      ].join('\n');
-    });
-    const header = `# Code Review Comments\n# Branch diff — ${comments.length} comment${comments.length > 1 ? 's' : ''}\n`;
-    navigator.clipboard.writeText(header + '\n' + parts.join('\n\n---\n\n'));
-    setToast(true);
-    setTimeout(() => setToast(false), 2500);
-  };
+  const currentFile = files.find((f) => f.path === selectedFile) || null;
 
   return createPortal(
     <div className="dv-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -263,112 +227,154 @@ export default function DiffViewer({ repoPath, branch, onClose }) {
         {/* Header */}
         <div className="dv-header">
           <span className="dv-title">{branch}</span>
-          <div className="dv-totals">
-            <span className="stat-add">+{totalAdd}</span>
-            <span className="stat-del">-{totalDel}</span>
-            <span className="dv-file-count">{files.length} {files.length === 1 ? 'file' : 'files'}</span>
-          </div>
-          <button className="btn-icon dv-close-btn" onClick={onClose} title="Minimize (Esc)"><Minimize2 size={16} /></button>
+          {activeTab === 'changes' && (
+            <div className="dv-totals">
+              <span className="stat-add">+{totalAdd}</span>
+              <span className="stat-del">-{totalDel}</span>
+              <span className="dv-file-count">{files.length} {files.length === 1 ? 'file' : 'files'}</span>
+            </div>
+          )}
+          <button className="btn-icon dv-close-btn" onClick={onClose} title="Close (Esc)"><Minimize2 size={16} /></button>
+        </div>
+
+        {/* Tabs */}
+        <div className="dv-tabs">
+          <button className={`dv-tab ${activeTab === 'project' ? 'dv-tab--active' : ''}`} onClick={() => setActiveTab('project')}>
+            Project
+          </button>
+          <button className={`dv-tab ${activeTab === 'changes' ? 'dv-tab--active' : ''}`} onClick={() => setActiveTab('changes')}>
+            Changes
+            {files.length > 0 && (
+              <span className="dv-tab-stats">
+                <span className="stat-add">+{totalAdd}</span>
+                <span className="stat-del">-{totalDel}</span>
+              </span>
+            )}
+          </button>
         </div>
 
         {/* Body */}
         <div className="dv-body">
 
-          {/* File list sidebar */}
-          <div className="dv-sidebar">
-            {files.map((f) => {
-              const name = f.path.split('/').pop();
-              const dir = f.path.split('/').slice(0, -1).join('/');
-              return (
-                <button
-                  key={f.path}
-                  className={`dv-file-btn ${f.path === selectedFile ? 'dv-file-btn--active' : ''}`}
-                  onClick={() => setSelectedFile(f.path)}
-                  title={f.path}
-                >
-                  <div className="dv-file-top">
-                    <span className="dv-file-name">{name}</span>
-                    <span className="dv-file-badge">M</span>
-                  </div>
-                  {dir && <span className="dv-file-dir">{dir}</span>}
-                  <div className="dv-file-stats">
-                    <span className="stat-add">+{f.additions}</span>
-                    <span className="stat-del">-{f.deletions}</span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Diff area */}
-          <div className="dv-area">
-            {loading && <div className="dv-state">Loading diff…</div>}
-            {error && <div className="dv-state dv-state--error">Error: {error}</div>}
-            {!loading && !error && files.length === 0 && <div className="dv-state">No uncommitted changes</div>}
-
-            {file && (
-              <>
-                <div className="dv-file-header">
-                  <span>{file.path}</span>
-                  <span className="dv-file-header-stats">
-                    <span className="stat-add">+{file.additions}</span>
-                    <span className="stat-del">-{file.deletions}</span>
-                  </span>
-                </div>
-
-                {file.isBinary && <div className="dv-state">Binary file — no preview</div>}
-
-                {!file.isBinary && file.hunks.map((hunk, hi) => (
-                  <div key={hi} className="dv-hunk">
-                    <div className="dv-hunk-header">
-                      @@ -{hunk.oldStart} +{hunk.newStart} @@
-                      {hunk.context && <span className="dv-hunk-ctx"> {hunk.context}</span>}
-                    </div>
-                    {hunk.rows.map((row, ri) => (
-                      <DiffRow
-                        key={ri}
-                        row={row}
-                        fileComments={fileComments}
-                        selectedFile={selectedFile}
-                        addingComment={addingComment}
-                        setAddingComment={setAddingComment}
-                        addComment={addComment}
-                        removeComment={removeComment}
-                      />
-                    ))}
-                  </div>
+          {/* ── Project tab ── */}
+          {activeTab === 'project' && (
+            <>
+              <div className="dv-sidebar dv-sidebar--tree">
+                {fileTreeLoading && <div className="dv-state">Loading…</div>}
+                {fileTreeError && <div className="dv-state dv-state--error">Failed to load</div>}
+                {!fileTreeLoading && !fileTreeError && fileTree.length === 0 && (
+                  <div className="dv-state">No files found</div>
+                )}
+                {fileTree.map((node) => (
+                  <FileTreeNode
+                    key={node.path}
+                    node={node}
+                    depth={0}
+                    onFileClick={handleTreeFileClick}
+                    activeFilePath={selectedTreePath}
+                  />
                 ))}
-              </>
-            )}
-          </div>
-        </div>
+              </div>
 
-        {/* Footer */}
-        <div className="dv-footer">
-          <button
-            className={`dv-footer-btn ${comments.length ? 'dv-footer-btn--active' : ''}`}
-            onClick={copyComments}
-            disabled={!comments.length}
-            title="Copy all comments with code context"
-          >
-            <Copy size={13} />
-            Copy comments
-            {comments.length > 0 && <span className="dv-count-badge">{comments.length}</span>}
-          </button>
-          {comments.length > 0 && (
-            <button className="dv-footer-btn dv-footer-btn--danger" onClick={() => setComments([])}>
-              <Trash2 size={13} />
-              Clear all
-            </button>
+              <div className="dv-area">
+                {!selectedTreePath && <div className="dv-state">Select a file to view its contents</div>}
+                {selectedTreePath && treeFileLoading && <div className="dv-state">Loading…</div>}
+                {selectedTreePath && !treeFileLoading && treeFileContent?.error && (
+                  <div className="dv-state dv-state--error">{treeFileContent.error}</div>
+                )}
+                {selectedTreePath && !treeFileLoading && treeFileContent?.content != null && (
+                  <>
+                    <div className="dv-file-header"><span>{selectedTreePath}</span></div>
+                    <div className="dv-monaco-wrap">
+                      <Editor
+                        key={selectedTreePath}
+                        theme={monacoTheme}
+                        language={getLang(treeFileContent.name)}
+                        value={treeFileContent.content}
+                        options={{ ...MONACO_OPTIONS, readOnly: true }}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
           )}
-        </div>
 
-        {toast && (
-          <div className="dv-toast">
-            <Copy size={13} />
-            Comments copied to clipboard
-          </div>
-        )}
+          {/* ── Changes tab ── */}
+          {activeTab === 'changes' && (
+            <>
+              <div className="dv-sidebar">
+                {files.map((f) => {
+                  const name = f.path.split('/').pop();
+                  const dir = f.path.split('/').slice(0, -1).join('/');
+                  return (
+                    <button
+                      key={f.path}
+                      className={`dv-file-btn ${f.path === selectedFile ? 'dv-file-btn--active' : ''}`}
+                      onClick={() => setSelectedFile(f.path)}
+                      title={f.path}
+                    >
+                      <div className="dv-file-top">
+                        <span className="dv-file-name">{name}</span>
+                        <span className="dv-file-badge">M</span>
+                      </div>
+                      {dir && <span className="dv-file-dir">{dir}</span>}
+                      <div className="dv-file-stats">
+                        <span className="stat-add">+{f.additions}</span>
+                        <span className="stat-del">-{f.deletions}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="dv-area">
+                {loading && <div className="dv-state">Loading diff…</div>}
+                {error && <div className="dv-state dv-state--error">Error: {error}</div>}
+                {!loading && !error && files.length === 0 && (
+                  <div className="dv-state">No uncommitted changes</div>
+                )}
+                {currentFile && (
+                  <>
+                    <div className="dv-file-header">
+                      <span>{currentFile.path}</span>
+                      {currentFile.isBinary && <span className="dv-file-count">Binary</span>}
+                      {!currentFile.isBinary && (
+                        <span className="dv-file-header-stats">
+                          <span className="stat-add">+{currentFile.additions}</span>
+                          <span className="stat-del">-{currentFile.deletions}</span>
+                        </span>
+                      )}
+                    </div>
+                    {currentFile.isBinary
+                      ? <div className="dv-state">Binary file — no preview</div>
+                      : diffContentLoading
+                        ? <div className="dv-state">Loading…</div>
+                        : (
+                          <div className="dv-monaco-wrap">
+                            <DiffEditor
+                              key={currentFile.path}
+                              theme={monacoTheme}
+                              language={getLang(currentFile.path.split('/').pop())}
+                              original={diffOriginal}
+                              modified={diffModified}
+                              options={{
+                                ...MONACO_OPTIONS,
+                                readOnly: true,
+                                renderSideBySide: true,
+                                ignoreTrimWhitespace: false,
+                              }}
+                            />
+                          </div>
+                        )
+                    }
+                  </>
+                )}
+              </div>
+            </>
+          )}
+
+        </div>
       </div>
     </div>,
     document.body
