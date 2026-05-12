@@ -1,7 +1,7 @@
 'use strict';
 
 const express = require('express');
-const { execSync, exec } = require('child_process');
+const { execSync: _execSync, exec: _exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const net = require('net');
@@ -10,6 +10,17 @@ const { WebSocketServer } = require('ws');
 
 const { randomUUID } = require('crypto');
 const os = require('os');
+
+// On Windows, hide the CMD window that would otherwise flash for every child process
+const execSync = process.platform === 'win32'
+  ? (cmd, opts) => _execSync(cmd, { windowsHide: true, ...opts })
+  : _execSync;
+const exec = process.platform === 'win32'
+  ? (cmd, optsOrCb, cb) => {
+      if (typeof optsOrCb === 'function') return _exec(cmd, { windowsHide: true }, optsOrCb);
+      return _exec(cmd, { windowsHide: true, ...optsOrCb }, cb);
+    }
+  : _exec;
 
 const app = express();
 app.use(express.json());
@@ -575,17 +586,24 @@ app.post('/api/open-vscode', (req, res) => {
 });
 
 app.get('/api/pick-folder', (_req, res) => {
-  if (process.platform !== 'darwin') {
-    return res.json({ path: null, error: 'Native folder picker is macOS only' });
+  if (process.platform === 'darwin') {
+    const script = `try\n  set f to POSIX path of (choose folder with prompt "Select a git repository:")\n  return f\non error\n  return ""\nend try`;
+    const tmp = path.join(os.tmpdir(), `wooop-pick-${Date.now()}.scpt`);
+    fs.writeFileSync(tmp, script);
+    exec(`osascript "${tmp}"`, (err, stdout) => {
+      try { fs.unlinkSync(tmp); } catch {}
+      const picked = stdout.trim().replace(/\/$/, '');
+      res.json({ path: picked || null });
+    });
+  } else if (process.platform === 'win32') {
+    const ps = `Add-Type -AssemblyName System.Windows.Forms; $d = New-Object System.Windows.Forms.FolderBrowserDialog; $d.Description = 'Select a git repository'; $d.ShowNewFolderButton = $false; if ($d.ShowDialog() -eq 'OK') { $d.SelectedPath }`;
+    exec(`powershell -NoProfile -WindowStyle Hidden -Command "${ps}"`, (err, stdout) => {
+      const picked = stdout.trim();
+      res.json({ path: picked || null });
+    });
+  } else {
+    res.json({ path: null, error: 'Folder picker not supported on this platform' });
   }
-  const script = `try\n  set f to POSIX path of (choose folder with prompt "Select a git repository:")\n  return f\non error\n  return ""\nend try`;
-  const tmp = path.join(os.tmpdir(), `wooop-pick-${Date.now()}.scpt`);
-  fs.writeFileSync(tmp, script);
-  exec(`osascript "${tmp}"`, (err, stdout) => {
-    try { fs.unlinkSync(tmp); } catch {}
-    const picked = stdout.trim().replace(/\/$/, '');
-    res.json({ path: picked || null });
-  });
 });
 
 app.post('/api/repos', (req, res) => {
