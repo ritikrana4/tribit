@@ -29,7 +29,7 @@ function AgentSelect({ onSelect }) {
   return (
     <div className="agent-select-screen">
       <div className="agent-select-box">
-        <div className="agent-select-logo">wooop</div>
+        <div className="agent-select-logo">tribit</div>
         <p className="agent-select-label">Choose your AI agent</p>
         <div className="agent-select-options">
           <button className="agent-select-btn" onClick={() => onSelect('claude')}>
@@ -322,7 +322,7 @@ function SettingsModal({ agent, onAgentChange, onClose, onShutdown, theme, onThe
                     Shut down server
                   </button>
                 )}
-                <span className="sv2-danger-hint">Kills all sessions and stops wooop</span>
+                <span className="sv2-danger-hint">Kills all sessions and stops tribit</span>
               </div>
             </div>
           )}
@@ -432,11 +432,11 @@ function SettingsModal({ agent, onAgentChange, onClose, onShutdown, theme, onThe
             <div className="sv2-about">
               <div className="sv2-about-logo">
                 <Zap size={20} />
-                <span>wooop</span>
+                <span>tribit</span>
               </div>
               <span className="sv2-about-badge">Beta</span>
               <p className="sv2-about-tagline">
-                Thanks for trying wooop! We're actively building and improving —
+                Thanks for trying tribit! We're actively building and improving —
                 your early support means a lot to us.
               </p>
               <div className="sv2-about-divider" />
@@ -467,11 +467,11 @@ export default function App() {
   const [showAddRepo, setShowAddRepo] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarExpanded, setSidebarExpanded] = useState(
-    () => localStorage.getItem('wooop-sidebar') !== 'collapsed'
+    () => localStorage.getItem('tribit-sidebar') !== 'collapsed'
   );
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [agent, setAgent] = useState(() => localStorage.getItem('wooop-agent') || 'claude');
-  const [agentChosen, setAgentChosen] = useState(() => !!localStorage.getItem('wooop-agent'));
+  const [agent, setAgent] = useState(() => localStorage.getItem('tribit-agent') || 'claude');
+  const [agentChosen, setAgentChosen] = useState(() => !!localStorage.getItem('tribit-agent'));
   const [shuttingDown, setShuttingDown] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -483,7 +483,7 @@ export default function App() {
   const pollIntervalRef = useRef(null);
   const [allWorktrees, setAllWorktrees] = useState([]);
   const [sessions, setSessions] = useState([]);
-  const [theme, setTheme] = useState(() => localStorage.getItem('wooop-theme') || 'dark');
+  const [theme, setTheme] = useState(() => localStorage.getItem('tribit-theme') || 'dark');
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -491,7 +491,7 @@ export default function App() {
 
   const handleThemeChange = useCallback((t) => {
     setTheme(t);
-    localStorage.setItem('wooop-theme', t);
+    localStorage.setItem('tribit-theme', t);
     document.documentElement.setAttribute('data-theme', t);
   }, []);
 
@@ -507,19 +507,19 @@ export default function App() {
 
   const handleAgentSelect = useCallback((a) => {
     setAgent(a);
-    localStorage.setItem('wooop-agent', a);
+    localStorage.setItem('tribit-agent', a);
     setAgentChosen(true);
   }, []);
 
   const handleAgentChange = useCallback((a) => {
     setAgent(a);
-    localStorage.setItem('wooop-agent', a);
+    localStorage.setItem('tribit-agent', a);
   }, []);
 
   const toggleSidebar = useCallback(() => {
     setSidebarExpanded((prev) => {
       const next = !prev;
-      localStorage.setItem('wooop-sidebar', next ? 'expanded' : 'collapsed');
+      localStorage.setItem('tribit-sidebar', next ? 'expanded' : 'collapsed');
       return next;
     });
   }, []);
@@ -564,7 +564,7 @@ export default function App() {
       setWorktrees(data.worktrees);
     } catch (err) {
       if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
-        setFatalError('Cannot connect to wooop server. Make sure you ran: node server.js');
+        setFatalError('Cannot connect to tribit server. Make sure you ran: npx tribit');
       } else {
         setFatalError(err.message);
       }
@@ -891,7 +891,7 @@ export default function App() {
           <div className="no-repo-box">
             <div className="error-icon">⚠</div>
             <h2>No repository selected</h2>
-            <p>wooop needs a git repository to manage worktrees.</p>
+            <p>tribit needs a git repository to manage worktrees.</p>
             {repos.length > 0 && (
               <p className="hint">Select a repository from the sidebar, or add a new one.</p>
             )}

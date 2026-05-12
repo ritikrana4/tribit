@@ -39,7 +39,7 @@ export default function Sidebar({
           <>
             <div className="sidebar-brand">
               <Zap size={14} className="sidebar-brand-zap" />
-              <span className="sidebar-brand-text">wooop</span>
+              <span className="sidebar-brand-text">tribit</span>
             </div>
             <button className="sidebar-toggle" onClick={onToggle} title="Collapse">
               <ChevronLeft size={15} />

@@ -25,11 +25,11 @@ const exec = process.platform === 'win32'
 const app = express();
 app.use(express.json());
 
-let REPO_DIR = process.env.WOOOP_CWD || process.cwd();
+let REPO_DIR = process.env.TRIBIT_CWD || process.cwd();
 
-/* ── Repos config (~/.wooop/repos.json) ──────────────── */
+/* ── Repos config (~/.tribit/repos.json) ──────────────── */
 
-const REPOS_FILE = path.join(os.homedir(), '.wooop', 'repos.json');
+const REPOS_FILE = path.join(os.homedir(), '.tribit', 'repos.json');
 
 function readRepos() {
   try { return JSON.parse(fs.readFileSync(REPOS_FILE, 'utf8')); }
@@ -137,14 +137,14 @@ function getWorktreeStatus(wtPath) {
   }
 }
 
-/* ── Metadata (persisted in .git/wooop-meta.json) ────────── */
+/* ── Metadata (persisted in .git/tribit-meta.json) ────────── */
 
 function getMetaPath(root) {
   const gitDir = execSync('git rev-parse --git-common-dir', { cwd: root })
     .toString()
     .trim();
   const absGitDir = path.isAbsolute(gitDir) ? gitDir : path.join(root, gitDir);
-  return path.join(absGitDir, 'wooop-meta.json');
+  return path.join(absGitDir, 'tribit-meta.json');
 }
 
 function readMeta(root) {
@@ -181,7 +181,7 @@ function createPtySession(wtPath, agent = 'claude') {
     cols: 80,
     rows: 24,
     cwd: wtPath,
-    env: { ...process.env, WOOOP: '1' },
+    env: { ...process.env, TRIBIT: '1' },
   });
 
   if (agent) {
@@ -257,7 +257,7 @@ app.get('/api/status', (_req, res) => {
   if (!root) {
     return res
       .status(400)
-      .json({ error: 'Not a git repository. Run wooop from inside a git repo.', cwd: REPO_DIR });
+      .json({ error: 'Not a git repository. Run tribit from inside a git repo.', cwd: REPO_DIR });
   }
   res.json({ root, repoName: path.basename(root), ok: true });
 });
@@ -588,7 +588,7 @@ app.post('/api/open-vscode', (req, res) => {
 app.get('/api/pick-folder', (_req, res) => {
   if (process.platform === 'darwin') {
     const script = `try\n  set f to POSIX path of (choose folder with prompt "Select a git repository:")\n  return f\non error\n  return ""\nend try`;
-    const tmp = path.join(os.tmpdir(), `wooop-pick-${Date.now()}.scpt`);
+    const tmp = path.join(os.tmpdir(), `tribit-pick-${Date.now()}.scpt`);
     fs.writeFileSync(tmp, script);
     exec(`osascript "${tmp}"`, (err, stdout) => {
       try { fs.unlinkSync(tmp); } catch {}

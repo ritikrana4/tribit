@@ -85,7 +85,7 @@ probeRunning(DEFAULT_PORT).then((running) => {
       detached: true,
       stdio: 'ignore',
       windowsHide: true,
-      env: { ...process.env, WOOOP_CWD: process.cwd(), PORT: String(port) },
+      env: { ...process.env, TRIBIT_CWD: process.cwd(), PORT: String(port) },
     });
     child.unref();
 
