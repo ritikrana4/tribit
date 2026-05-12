@@ -1,0 +1,61 @@
+#!/usr/bin/env node
+'use strict';
+
+process.env.WOOOP_CWD = process.cwd();
+
+const path = require('path');
+const fs = require('fs');
+const http = require('http');
+const { exec } = require('child_process');
+
+const DEFAULT_PORT = parseInt(process.env.PORT || '7700', 10);
+
+function openApp(url) {
+  if (process.platform === 'darwin') {
+    const chromePaths = [
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      '/Applications/Chromium.app/Contents/MacOS/Chromium',
+      '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
+      '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    ];
+    const chrome = chromePaths.find((p) => fs.existsSync(p));
+    if (chrome) {
+      exec(`"${chrome}" --app=${url} --new-window`);
+    } else {
+      exec(`open "${url}"`);
+    }
+  } else if (process.platform === 'win32') {
+    const chromePaths = [
+      process.env.PROGRAMFILES && path.join(process.env.PROGRAMFILES, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      process.env['PROGRAMFILES(X86)'] && path.join(process.env['PROGRAMFILES(X86)'], 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    ].filter(Boolean);
+    const chrome = chromePaths.find((p) => fs.existsSync(p));
+    if (chrome) {
+      exec(`"${chrome}" --app=${url} --new-window`);
+    } else {
+      exec(`start "" "${url}"`, { shell: true });
+    }
+  } else {
+    exec(`xdg-open "${url}"`);
+  }
+}
+
+function probeRunning(port) {
+  return new Promise((resolve) => {
+    const req = http.get(`http://localhost:${port}/api/status`, { timeout: 1000 }, (res) => {
+      resolve(res.statusCode < 500);
+    });
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => { req.destroy(); resolve(false); });
+  });
+}
+
+probeRunning(DEFAULT_PORT).then((running) => {
+  if (running) {
+    openApp(`http://localhost:${DEFAULT_PORT}`);
+    return;
+  }
+  const { ready } = require(path.join(__dirname, '..', 'server.js'));
+  ready.then((port) => openApp(`http://localhost:${port}`));
+});
