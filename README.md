@@ -21,17 +21,6 @@ cd your-repo
 npx tribit
 ```
 
-Opens a standalone app window on `http://localhost:7700`.
-
-## Development
-
-```bash
-git clone https://github.com/ritikrana4/tribit.git
-cd tribit
-npm install
-npm run dev     # Express on :7700 + Vite on :5173
-```
-
 ## Author
 
 **Ritik Rana**
