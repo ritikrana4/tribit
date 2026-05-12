@@ -1,6 +1,6 @@
 {
   "name": "tribit",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Git worktree manager with web UI and AI agent integration",
   "author": "Ritik Rana",
   "main": "server.js",
