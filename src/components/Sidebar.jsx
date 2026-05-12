@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronDown, Plus, X, Settings, Zap, GitBranch } from 'lucide-react';
+import { ChevronLeft, ChevronDown, Plus, X, Settings, GitBranch } from 'lucide-react';
 import { ICONS } from '../repoMeta.js';
 
 function RepoIcon({ iconId, repoName, size = 15 }) {
@@ -38,7 +38,7 @@ export default function Sidebar({
         {expanded ? (
           <>
             <div className="sidebar-brand">
-              <Zap size={14} className="sidebar-brand-zap" />
+              <span className="sidebar-brand-zap">🦆</span>
               <span className="sidebar-brand-text">tribit</span>
             </div>
             <button className="sidebar-toggle" onClick={onToggle} title="Collapse">
@@ -48,8 +48,7 @@ export default function Sidebar({
         ) : (
           <button className="sidebar-logo-btn" onClick={onToggle} title="Expand">
             <div className="sidebar-logo-mark">
-              <span className="sidebar-logo-w">W</span>
-              <Zap size={7} className="sidebar-logo-zap" />
+              <span className="sidebar-logo-w">🦆</span>
             </div>
           </button>
         )}
