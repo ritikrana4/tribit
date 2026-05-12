@@ -256,8 +256,12 @@ export default function WorktreeNode({ data }) {
             </>
           ) : (
             <>
-              <span className={`status-dot status-dot--${worktree.status}`} />
-              <span className="meta-text">{worktree.status}</span>
+              <span className="card-diff-summary">
+                <span className="card-diff-files">0 files</span>
+                <span className="stat-add">+0</span>
+                <span className="stat-del">-0</span>
+              </span>
+              <button className="nodrag btn-changes" onClick={() => setShowDiff(true)}>Changes</button>
               <button className="nodrag btn-changes btn-changes--editor" onClick={handleOpenVscode}>
                 <Code2 size={12} /> View In Editor
               </button>
@@ -344,8 +348,12 @@ export default function WorktreeNode({ data }) {
                   </>
                 ) : (
                   <>
-                    <span className={`status-dot status-dot--${worktree.status}`} />
-                    <span className="meta-text">{worktree.status}</span>
+                    <span className="card-diff-summary">
+                      <span className="card-diff-files">0 files</span>
+                      <span className="stat-add">+0</span>
+                      <span className="stat-del">-0</span>
+                    </span>
+                    <button className="btn-changes" onClick={() => setShowDiff(true)}>Changes</button>
                     <button className="btn-changes btn-changes--editor" onClick={handleOpenVscode}>
                       <Code2 size={12} /> View In Editor
                     </button>
