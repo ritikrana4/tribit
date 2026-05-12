@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { RefreshCw, X, FolderOpen, Search, PowerOff, Plus, StopCircle, Trash2, Folder, ArrowLeft, ChevronRight, Bot, Terminal, Palette, Info, Mail, Zap, Sun, Moon } from 'lucide-react';
+import { X, FolderOpen, Search, PowerOff, Plus, StopCircle, Trash2, Folder, ArrowLeft, ChevronRight, Bot, Terminal, Palette, Info, Mail, Zap, LayoutGrid } from 'lucide-react';
 import ReactFlow, {
   Background,
   BackgroundVariant,
@@ -18,9 +18,9 @@ import { COLORS, ICONS } from './repoMeta.js';
 const nodeTypes = { worktree: WorktreeNode };
 
 function FlowController({ apiRef }) {
-  const { fitView } = useReactFlow();
+  const { fitView, getNodes } = useReactFlow();
   useEffect(() => {
-    apiRef.current = { fitView };
+    apiRef.current = { fitView, getNodes };
   });
   return null;
 }
@@ -469,6 +469,7 @@ export default function App() {
   const flowApiRef = useRef(null);
   const searchRef = useRef(null);
   const pendingFocusRef = useRef(null);
+  const pendingCreatedRef = useRef(null);
   const [allWorktrees, setAllWorktrees] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [theme, setTheme] = useState(() => localStorage.getItem('wooop-theme') || 'dark');
@@ -563,10 +564,10 @@ export default function App() {
         body: JSON.stringify({ wtPath, force }),
       });
       const data = await res.json();
-      if (res.ok) { fetchWorktrees(); return null; }
+      if (res.ok) { fetchWorktrees(); fetchAllWorktrees(); return null; }
       return data;
     },
-    [fetchWorktrees]
+    [fetchWorktrees, fetchAllWorktrees]
   );
 
   const handleOpenCopilot = useCallback(
@@ -682,20 +683,39 @@ export default function App() {
   useEffect(() => {
     setNodes((prev) => {
       const prevMap = new Map(prev.map((n) => [n.id, n]));
-      return worktrees.map((wt, i) => ({
-        id: wt.path,
-        type: 'worktree',
-        position: prevMap.get(wt.path)?.position ?? wt.position ?? { x: i * 310, y: 80 },
-        data: {
-          ...wt,
-          agent,
-          theme,
-          onDelete: handleDelete,
-          onOpenCopilot: handleOpenCopilot,
-          onKillTerminal: handleKillTerminal,
-          onNewSession: handleNewSession,
-        },
-      }));
+      const wtMap = new Map(worktrees.map((wt) => [wt.path, wt]));
+
+      const buildData = (wt) => ({
+        ...wt, agent, theme,
+        onDelete: handleDelete,
+        onOpenCopilot: handleOpenCopilot,
+        onKillTerminal: handleKillTerminal,
+        onNewSession: handleNewSession,
+      });
+
+      // Keep existing nodes in their current prev order so drag z-stacking is preserved
+      const result = prev
+        .filter((n) => wtMap.has(n.id))
+        .map((n) => ({ ...n, data: buildData(wtMap.get(n.id)) }));
+
+      // Append genuinely new nodes at the end (renders on top)
+      worktrees.forEach((wt) => {
+        if (prevMap.has(wt.path)) return;
+        const existing = result.map((n) => n.position).filter(Boolean);
+        let position = wt.position;
+        if (!position) {
+          if (existing.length === 0) {
+            position = { x: 80, y: 80 };
+          } else {
+            const maxY = Math.max(...existing.map((p) => p.y));
+            const avgX = Math.round(existing.reduce((s, p) => s + p.x, 0) / existing.length);
+            position = { x: avgX, y: maxY + 220 };
+          }
+        }
+        result.push({ id: wt.path, type: 'worktree', position, data: buildData(wt) });
+      });
+
+      return result;
     });
   }, [worktrees, agent, theme, handleDelete, handleOpenCopilot, handleKillTerminal, handleNewSession, setNodes]);
 
@@ -706,6 +726,55 @@ export default function App() {
       body: JSON.stringify({ wtPath: node.id, position: node.position }),
     });
   }, []);
+
+  const handleAutoArrange = useCallback(() => {
+    const allNodes = flowApiRef.current?.getNodes?.() ?? nodes;
+    if (allNodes.length === 0) return;
+
+    const GAP = 40;
+    const COLS = Math.min(3, Math.ceil(Math.sqrt(allNodes.length)));
+    const sorted = [...allNodes].sort((a, b) => a.position.y - b.position.y || a.position.x - b.position.x);
+
+    const dimMap = new Map();
+    document.querySelectorAll('.react-flow__node').forEach((el) => {
+      const id = el.getAttribute('data-id');
+      if (!id) return;
+      const card = el.querySelector('.card');
+      dimMap.set(id, {
+        w: card ? card.offsetWidth : el.offsetWidth,
+        h: card ? card.offsetHeight : el.offsetHeight,
+      });
+    });
+    const getDims = (id) => dimMap.get(id) ?? { w: 560, h: 220 };
+
+    const posMap = new Map();
+    let y = 80;
+    for (let r = 0; r < sorted.length; r += COLS) {
+      const row = sorted.slice(r, r + COLS);
+      const rowH = Math.max(...row.map((n) => getDims(n.id).h));
+      let x = 80;
+      row.forEach((n) => {
+        posMap.set(n.id, { x, y });
+        x += getDims(n.id).w + GAP;
+      });
+      y += rowH + GAP;
+    }
+
+    setNodes((prev) => prev.map((n) => {
+      const pos = posMap.get(n.id);
+      return pos ? { ...n, position: pos } : n;
+    }));
+
+    posMap.forEach((position, wtPath) => {
+      fetch('/api/positions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wtPath, position }),
+      });
+    });
+
+    setTimeout(() => flowApiRef.current?.fitView({ duration: 400, padding: 0.25 }), 100);
+  }, [nodes, setNodes]);
 
   useEffect(() => {
     fetch('/api/status')
@@ -734,6 +803,16 @@ export default function App() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  // After a new worktree is created, fit all nodes into view
+  useEffect(() => {
+    if (pendingCreatedRef.current && nodes.some((n) => n.id === pendingCreatedRef.current)) {
+      pendingCreatedRef.current = null;
+      setTimeout(() => {
+        flowApiRef.current?.fitView({ duration: 400, padding: 0.25 });
+      }, 400);
+    }
+  }, [nodes]);
 
   // After a cross-repo switch, nodes re-render — fire the deferred focus
   useEffect(() => {
@@ -881,18 +960,11 @@ export default function App() {
               </div>
             )}
           </div>
+          <button className="btn-refresh" onClick={handleAutoArrange} title="Auto arrange"><LayoutGrid size={14} /></button>
 
           <span className="wt-count">
             {worktrees.length} worktree{worktrees.length !== 1 ? 's' : ''}
           </span>
-          <button className="btn-refresh" onClick={fetchWorktrees} title="Refresh"><RefreshCw size={14} /></button>
-          <button
-            className="btn-theme-toggle"
-            onClick={() => handleThemeChange(theme === 'dark' ? 'light' : 'dark')}
-            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
-            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-          </button>
         </header>
 
         <div className="flow-wrap">
@@ -923,7 +995,12 @@ export default function App() {
       {creating && (
         <CreateModal
           onClose={() => setCreating(false)}
-          onCreated={() => { setCreating(false); fetchWorktrees(); }}
+          onCreated={(newPath) => {
+            setCreating(false);
+            if (newPath) pendingCreatedRef.current = newPath;
+            fetchWorktrees();
+            fetchAllWorktrees();
+          }}
         />
       )}
 

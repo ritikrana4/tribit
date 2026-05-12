@@ -25,6 +25,7 @@ export default function WorktreeNode({ data }) {
   const [termHeight, setTermHeight] = useState(280);
   const resizeDrag = useRef(null);
   const cardRef = useRef(null);
+  const pendingNewSessionRef = useRef(null);
 
   useEffect(() => {
     const el = cardRef.current;
@@ -39,10 +40,20 @@ export default function WorktreeNode({ data }) {
   useEffect(() => {
     if (sessions.length === 0) {
       setActiveSessionId(null);
+      pendingNewSessionRef.current = null;
+    } else if (pendingNewSessionRef.current && sessions.find((s) => s.sessionId === pendingNewSessionRef.current)) {
+      setActiveSessionId(pendingNewSessionRef.current);
+      pendingNewSessionRef.current = null;
     } else if (!sessions.find((s) => s.sessionId === activeSessionId)) {
-      setActiveSessionId(sessions[0].sessionId);
+      setActiveSessionId(sessions[sessions.length - 1].sessionId);
     }
   }, [sessions, activeSessionId]);
+
+  useEffect(() => {
+    if (killConfirmId && !sessions.find((s) => s.sessionId === killConfirmId)) {
+      setKillConfirmId(null);
+    }
+  }, [sessions, killConfirmId]);
 
   useEffect(() => {
     if (!fullscreen) return;
@@ -73,13 +84,13 @@ export default function WorktreeNode({ data }) {
   const handleOpen = async () => {
     setOpening(true);
     const sessionId = await onOpenCopilot(worktree.path);
-    if (sessionId) setActiveSessionId(sessionId);
+    if (sessionId) pendingNewSessionRef.current = sessionId;
     setTimeout(() => setOpening(false), 600);
   };
 
   const handleNewSession = async () => {
     const sessionId = await onNewSession(worktree.path);
-    if (sessionId) setActiveSessionId(sessionId);
+    if (sessionId) pendingNewSessionRef.current = sessionId;
   };
 
   const handleKill = async (sid) => {
@@ -154,7 +165,8 @@ export default function WorktreeNode({ data }) {
             <button
               className="nodrag card-session-tab-kill"
               title="Kill this agent"
-              onClick={() => setKillConfirmId(s.sessionId)}
+              onClick={() => { if (!killConfirmId) setKillConfirmId(s.sessionId); }}
+              disabled={!!killConfirmId}
             >
               <StopCircle size={13} />
             </button>

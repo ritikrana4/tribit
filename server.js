@@ -227,8 +227,8 @@ function getSessionsForWorktree(wtPath) {
       }
     }
   }
-  // Sort by lastActivity descending (most recent first)
-  results.sort((a, b) => b.lastActivity - a.lastActivity);
+  // Sort by createdAt ascending (oldest first) so new agents appear at the end
+  results.sort((a, b) => a.createdAt - b.createdAt);
   return results;
 }
 

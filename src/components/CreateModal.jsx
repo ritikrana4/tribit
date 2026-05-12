@@ -58,7 +58,7 @@ export default function CreateModal({ onClose, onCreated }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      onCreated();
+      onCreated(data.path);
     } catch (err) {
       setError(err.message);
       setLoading(false);
