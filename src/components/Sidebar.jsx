@@ -23,8 +23,7 @@ export default function Sidebar({
 }) {
   const [collapsedRepos, setCollapsedRepos] = useState(new Set());
 
-  const toggleTree = (repoPath, e) => {
-    e.stopPropagation();
+  const toggleTree = (repoPath) => {
     setCollapsedRepos((prev) => {
       const next = new Set(prev);
       if (next.has(repoPath)) next.delete(repoPath);
@@ -75,7 +74,7 @@ export default function Sidebar({
               <div className={`sidebar-item-wrap ${isActive ? 'sidebar-item-wrap--active' : ''}`}>
                 <button
                   className="sidebar-item"
-                  onClick={() => onSwitch(repo.path)}
+                  onClick={() => { onSwitch(repo.path); if (expanded && repoWorktrees.length > 0) toggleTree(repo.path); }}
                   title={repo.path}
                 >
                   <span
@@ -97,7 +96,7 @@ export default function Sidebar({
                 {expanded && repoWorktrees.length > 0 && (
                   <button
                     className={`sidebar-repo-chevron ${treeOpen ? '' : 'sidebar-repo-chevron--collapsed'}`}
-                    onClick={(e) => toggleTree(repo.path, e)}
+                    onClick={(e) => { e.stopPropagation(); toggleTree(repo.path); }}
                     title={treeOpen ? 'Collapse worktrees' : 'Expand worktrees'}
                   >
                     <ChevronDown size={11} />

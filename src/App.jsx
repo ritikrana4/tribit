@@ -434,7 +434,7 @@ function SettingsModal({ agent, onAgentChange, onClose, onShutdown, theme, onThe
               <div className="sv2-about-contact">
                 <Mail size={13} className="sv2-about-contact-icon" />
                 <span>Questions or feedback?</span>
-                <a href="mailto:hello@wooop.dev" className="sv2-about-link">hello@wooop.dev</a>
+                <a href="mailto:thisisritikrana@gmail.com" className="sv2-about-link">thisisritikrana@gmail.com</a>
               </div>
               <span className="sv2-about-version">v0.1.0-beta</span>
             </div>
