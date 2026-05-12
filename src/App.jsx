@@ -195,6 +195,7 @@ function AddRepoModal({ onClose, onAdded }) {
 function SettingsModal({ agent, onAgentChange, onClose, onShutdown, theme, onThemeChange }) {
   const [view, setView] = useState(null);
   const [sessions, setSessions] = useState([]);
+  const [confirmShutdown, setConfirmShutdown] = useState(false);
 
   const fetchSessions = useCallback(async () => {
     const res = await fetch('/api/sessions');
@@ -309,10 +310,18 @@ function SettingsModal({ agent, onAgentChange, onClose, onShutdown, theme, onThe
               </div>
 
               <div className="sv2-danger-zone">
-                <button className="sv2-shutdown-btn" onClick={onShutdown}>
-                  <PowerOff size={13} />
-                  Shut down server
-                </button>
+                {confirmShutdown ? (
+                  <div className="sv2-shutdown-confirm">
+                    <span className="sv2-shutdown-confirm-text">Are you sure?</span>
+                    <button className="sv2-shutdown-confirm-yes" onClick={onShutdown}>Yes, shut down</button>
+                    <button className="sv2-shutdown-confirm-cancel" onClick={() => setConfirmShutdown(false)}>Cancel</button>
+                  </div>
+                ) : (
+                  <button className="sv2-shutdown-btn" onClick={() => setConfirmShutdown(true)}>
+                    <PowerOff size={13} />
+                    Shut down server
+                  </button>
+                )}
                 <span className="sv2-danger-hint">Kills all sessions and stops wooop</span>
               </div>
             </div>
@@ -471,6 +480,7 @@ export default function App() {
   const searchRef = useRef(null);
   const pendingFocusRef = useRef(null);
   const pendingCreatedRef = useRef(null);
+  const pollIntervalRef = useRef(null);
   const [allWorktrees, setAllWorktrees] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [theme, setTheme] = useState(() => localStorage.getItem('wooop-theme') || 'dark');
@@ -486,6 +496,10 @@ export default function App() {
   }, []);
 
   const handleShutdown = useCallback(async () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
     setShowSettings(false);
     setShuttingDown(true);
     await fetch('/api/shutdown', { method: 'POST' }).catch(() => {});
@@ -804,7 +818,8 @@ export default function App() {
     fetchAllWorktrees();
     fetchSessions();
     const t = setInterval(() => { fetchWorktrees(); fetchSessions(); }, 5000);
-    return () => clearInterval(t);
+    pollIntervalRef.current = t;
+    return () => { clearInterval(t); pollIntervalRef.current = null; };
   }, [fetchWorktrees, fetchRepos, fetchAllWorktrees, fetchSessions]);
 
   useEffect(() => {
