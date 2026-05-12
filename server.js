@@ -246,9 +246,23 @@ app.get('/api/status', (_req, res) => {
   if (!root) {
     return res
       .status(400)
-      .json({ error: 'Not a git repository. Run wooop from inside a git repo.' });
+      .json({ error: 'Not a git repository. Run wooop from inside a git repo.', cwd: REPO_DIR });
   }
   res.json({ root, repoName: path.basename(root), ok: true });
+});
+
+app.post('/api/git-init', (_req, res) => {
+  try {
+    execSync('git init', { cwd: REPO_DIR, stdio: 'pipe' });
+    const repos = readRepos();
+    if (!repos.find((r) => r.path === REPO_DIR)) {
+      repos.push({ path: REPO_DIR, name: path.basename(REPO_DIR) });
+      saveRepos(repos);
+    }
+    res.json({ ok: true, path: REPO_DIR });
+  } catch (err) {
+    res.status(500).json({ error: err.stderr?.toString().trim() || err.message });
+  }
 });
 
 app.get('/api/worktrees', (_req, res) => {

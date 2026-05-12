@@ -1710,6 +1710,11 @@ body {
 .no-repo-box { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
 .no-repo-box h2 { font-size: 20px; font-weight: 600; }
 .no-repo-box p { font-size: 13px; color: var(--text-2); line-height: 1.6; }
+.no-repo-init { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--border-soft); width: 100%; }
+.no-repo-init-label { font-size: 12px; color: var(--text-3); margin: 0; }
+.no-repo-init-path { font-family: var(--mono); font-size: 12px; color: var(--text-2); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 12px; word-break: break-all; max-width: 400px; }
+.btn-agent--outline { background: none; border-color: var(--accent-border); color: var(--accent); }
+.btn-agent--outline:hover { background: var(--accent-bg); }
 .error-page { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 40px; text-align: center; }
 .error-icon { font-size: 44px; color: var(--amber); }
 .error-page h2 { font-size: 20px; font-weight: 600; }

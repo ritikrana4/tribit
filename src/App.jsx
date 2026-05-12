@@ -453,6 +453,7 @@ export default function App() {
   const [repos, setRepos] = useState([]);
   const [fatalError, setFatalError] = useState(null);
   const [noGitRepo, setNoGitRepo] = useState(false);
+  const [currentDir, setCurrentDir] = useState('');
   const [creating, setCreating] = useState(false);
   const [showAddRepo, setShowAddRepo] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -670,6 +671,18 @@ export default function App() {
     await fetchRepos();
   }, [fetchRepos]);
 
+  const handleGitInit = useCallback(async () => {
+    const res = await fetch('/api/git-init', { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+      setNoGitRepo(false);
+      await fetchRepos();
+      await handleSwitchRepo(data.path);
+    } else {
+      setFatalError(data.error);
+    }
+  }, [fetchRepos, handleSwitchRepo]);
+
   const handleRemoveRepo = useCallback(async (repoPath) => {
     await fetch('/api/repos', {
       method: 'DELETE',
@@ -781,7 +794,7 @@ export default function App() {
       .then((r) => r.json())
       .then((d) => {
         if (d.ok) { setRepoName(d.repoName); setNoGitRepo(false); }
-        else if (d.error?.includes('Not a git repository')) setNoGitRepo(true);
+        else if (d.error?.includes('Not a git repository')) { setNoGitRepo(true); if (d.cwd) setCurrentDir(d.cwd); }
         else setFatalError(d.error);
       })
       .catch(() => setFatalError('Cannot connect to server'));
@@ -870,6 +883,15 @@ export default function App() {
             <button className="btn-agent" onClick={() => setShowAddRepo(true)}>
               Add Repository
             </button>
+            {currentDir && (
+              <div className="no-repo-init">
+                <p className="no-repo-init-label">Or initialize git in the current directory:</p>
+                <div className="no-repo-init-path">{currentDir}</div>
+                <button className="btn-agent btn-agent--outline" onClick={handleGitInit}>
+                  Initialize git here
+                </button>
+              </div>
+            )}
           </div>
         </div>
         {showAddRepo && (
