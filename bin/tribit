@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 'use strict';
 
+// Suppress all stderr, warnings and unhandled rejections — nothing should bleed into the terminal
+process.stderr.write = () => true;
+process.on('warning', () => {});
+process.on('unhandledRejection', () => {});
+process.on('uncaughtException', () => {});
+
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -125,6 +131,18 @@ function waitForServer(port, attempts = 30) {
   });
 }
 
+// Graceful shutdown: ask server to kill all agent sessions first, force-kill as fallback
+function gracefulShutdown(port, child) {
+  const req = http.request(
+    { hostname: 'localhost', port, path: '/api/shutdown', method: 'POST' },
+    () => {}
+  );
+  req.on('error', () => { try { child.kill(); } catch {} });
+  req.end();
+  // Force kill after 2s if server hasn't exited cleanly
+  setTimeout(() => { try { child.kill(); } catch {} process.exit(0); }, 2000).unref();
+}
+
 // ── Update check ──────────────────────────────────────────────
 function checkForUpdate() {
   https.get('https://registry.npmjs.org/tribit/latest', { timeout: 3000 }, (res) => {
@@ -155,19 +173,18 @@ probeRunning(DEFAULT_PORT).then((running) => {
   findPort(DEFAULT_PORT).then((port) => {
     const serverPath = path.join(__dirname, '..', 'server.js');
 
-    // Server is NOT detached — closing this terminal kills it
+    // Not detached — closing this terminal kills the server and all agent sessions
     const child = spawn(process.execPath, [serverPath], {
       stdio: 'ignore',
       windowsHide: true,
       env: { ...process.env, TRIBIT_CWD: process.cwd(), PORT: String(port) },
     });
 
-    const shutdown = () => { try { child.kill(); } catch {} };
-    process.on('exit', shutdown);
-    process.on('SIGINT', () => { process.stdout.write('\n'); process.exit(0); });
-    process.on('SIGTERM', () => process.exit(0));
+    // Ctrl+C or SIGTERM → graceful shutdown (kills all agent sessions first)
+    process.on('SIGINT', () => { process.stdout.write('\n'); gracefulShutdown(port, child); });
+    process.on('SIGTERM', () => gracefulShutdown(port, child));
 
-    // If server crashes, exit the terminal too
+    // Server exited on its own (e.g. "Shut down server" button in UI) → exit terminal
     child.on('exit', () => process.exit(0));
 
     waitForServer(port).then((ok) => {
