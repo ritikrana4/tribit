@@ -49,10 +49,12 @@ const APP_BROWSERS = process.platform === 'darwin'
     ].filter(Boolean)
   : [];
 
-function openApp(url) {
+function openApp(url, newWindow = true) {
   const browser = APP_BROWSERS.find((p) => fs.existsSync(p));
   if (browser) {
-    exec(`"${browser}" --app=${url} --new-window`);
+    // newWindow=true on first launch; false when server already running so Chrome focuses existing window
+    const flags = newWindow ? `--app=${url} --new-window` : `--app=${url}`;
+    exec(`"${browser}" ${flags}`);
   } else if (process.platform === 'win32') {
     exec(`start "" "${url}"`, { shell: true });
   } else if (process.platform === 'darwin') {
@@ -94,7 +96,7 @@ function waitForServer(port, attempts = 30) {
 
 probeRunning(DEFAULT_PORT).then((running) => {
   if (running) {
-    openApp(`http://localhost:${DEFAULT_PORT}`);
+    openApp(`http://localhost:${DEFAULT_PORT}`, false);
     return;
   }
 

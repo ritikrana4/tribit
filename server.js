@@ -596,7 +596,8 @@ app.get('/api/pick-folder', (_req, res) => {
       res.json({ path: picked || null });
     });
   } else if (process.platform === 'win32') {
-    const ps = `Add-Type -AssemblyName System.Windows.Forms; $d = New-Object System.Windows.Forms.FolderBrowserDialog; $d.Description = 'Select a git repository'; $d.ShowNewFolderButton = $false; if ($d.ShowDialog() -eq 'OK') { $d.SelectedPath }`;
+    // OpenFileDialog with ValidateNames=false shows the modern Windows Explorer UI
+    const ps = `Add-Type -AssemblyName System.Windows.Forms; $d = New-Object System.Windows.Forms.OpenFileDialog; $d.Title = 'Select a git repository'; $d.ValidateNames = $false; $d.CheckFileExists = $false; $d.CheckPathExists = $true; $d.FileName = 'Select Folder'; if ($d.ShowDialog() -eq 'OK') { [IO.Path]::GetDirectoryName($d.FileName) }`;
     exec(`powershell -NoProfile -WindowStyle Hidden -Command "${ps}"`, (err, stdout) => {
       const picked = stdout.trim();
       res.json({ path: picked || null });
