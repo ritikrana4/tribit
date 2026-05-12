@@ -22,6 +22,8 @@ npm-debug.log*
 
 # Claude Code
 .claude/
+lib/
+bin/claude
 
 # Temp / scratch
 temp/
