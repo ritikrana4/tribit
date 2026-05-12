@@ -654,6 +654,65 @@ app.post('/api/repos/switch', (req, res) => {
   res.json({ ok: true, root, repoName: path.basename(root) });
 });
 
+/* ── File tree / read / write ─────────────────────────────── */
+
+const SKIP_DIRS = new Set(['.git', 'node_modules', '__pycache__', '.next', '.nuxt', 'dist', '.cache', 'coverage', '.turbo', 'out', 'build']);
+
+function buildTree(dirPath, maxDepth = 8, depth = 0) {
+  if (depth > maxDepth) return [];
+  let entries;
+  try { entries = fs.readdirSync(dirPath, { withFileTypes: true }); } catch { return []; }
+
+  const dirs = [], files = [];
+  for (const e of entries) {
+    if (e.name.startsWith('.') && e.isDirectory() && SKIP_DIRS.has(e.name)) continue;
+    if (SKIP_DIRS.has(e.name)) continue;
+    const full = path.join(dirPath, e.name);
+    if (e.isDirectory()) dirs.push({ type: 'dir', name: e.name, path: full, children: buildTree(full, maxDepth, depth + 1) });
+    else if (e.isFile()) files.push({ type: 'file', name: e.name, path: full });
+  }
+
+  dirs.sort((a, b) => a.name.localeCompare(b.name));
+  files.sort((a, b) => a.name.localeCompare(b.name));
+  return [...dirs, ...files];
+}
+
+app.get('/api/files/tree', (req, res) => {
+  const { dirPath } = req.query;
+  if (!dirPath) return res.status(400).json({ error: 'dirPath required' });
+  const tree = buildTree(dirPath);
+  res.json({ tree });
+});
+
+app.get('/api/files/read', (req, res) => {
+  const { filePath } = req.query;
+  if (!filePath) return res.status(400).json({ error: 'filePath required' });
+  try {
+    const stat = fs.statSync(filePath);
+    if (stat.size > 2 * 1024 * 1024) return res.json({ error: 'File too large' });
+    const content = fs.readFileSync(filePath, 'utf8');
+    res.json({ content });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+app.post('/api/files/write', (req, res) => {
+  const { filePath, content } = req.body;
+  if (!filePath) return res.status(400).json({ error: 'filePath required' });
+  try { fs.writeFileSync(filePath, content ?? '', 'utf8'); res.json({ ok: true }); }
+  catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+app.get('/api/git/original', (req, res) => {
+  const { repoPath, filePath } = req.query;
+  if (!repoPath || !filePath) return res.status(400).json({ error: 'repoPath and filePath required' });
+  try {
+    const content = execSync(`git show HEAD:${filePath}`, { cwd: repoPath, encoding: 'utf8' });
+    res.json({ content });
+  } catch {
+    res.json({ content: '' }); // new file not yet committed
+  }
+});
+
 app.post('/api/shutdown', (_req, res) => {
   res.json({ ok: true });
   setTimeout(() => { killAllSessions(); process.exit(0); }, 150);
