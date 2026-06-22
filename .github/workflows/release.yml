@@ -1,0 +1,104 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-mac:
+    name: Build macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install npm dependencies
+        run: npm install
+
+      - name: Build app
+        run: cd wails-app && wails build -platform darwin/universal
+
+      - name: Create DMG
+        run: |
+          brew install create-dmg
+          create-dmg \
+            --volname "tribit" \
+            --window-size 540 380 \
+            --icon-size 128 \
+            --icon "tribit.app" 130 175 \
+            --app-drop-link 410 175 \
+            "tribit-mac.dmg" \
+            "wails-app/build/bin/"
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: tribit-mac
+          path: tribit-mac.dmg
+
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install NSIS
+        run: choco install nsis -y
+
+      - name: Install npm dependencies
+        run: npm install
+
+      - name: Build app (with NSIS installer)
+        run: cd wails-app && wails build -nsis
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: tribit-windows
+          path: wails-app/build/bin/*.exe
+
+  release:
+    name: Create Release
+    needs: [build-mac, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Mac artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tribit-mac
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tribit-windows
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            tribit-mac.dmg
+            *.exe

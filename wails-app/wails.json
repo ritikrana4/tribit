@@ -1,0 +1,13 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "tribit",
+  "outputfilename": "tribit",
+  "frontend:install": "",
+  "frontend:build": "cd .. && npx vite build --outDir wails-app/frontend/dist --emptyOutDir",
+  "frontend:dev:watcher": "cd .. && API_PORT=7700 npx vite --port 5173",
+  "frontend:dev:serverUrl": "http://localhost:5173",
+  "author": {
+    "name": "Ritik Rana",
+    "email": "ritikrana4@gmail.com"
+  }
+}

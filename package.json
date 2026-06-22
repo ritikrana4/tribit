@@ -3,27 +3,9 @@
   "version": "1.2.7",
   "description": "Git worktree manager with web UI and AI agent integration",
   "author": "Ritik Rana",
-  "main": "server.js",
-  "bin": {
-    "tribit": "./bin/tribit"
-  },
-  "files": [
-    "bin",
-    "dist",
-    "server.js"
-  ],
   "scripts": {
-    "dev": "concurrently \"node server.js\" \"vite --port 5173\"",
-    "build": "vite build",
-    "prepare": "vite build",
-    "start": "node server.js",
-    "restart": "pkill -f 'node.*tribit' 2>/dev/null || true; npm run build && node bin/tribit",
-    "postinstall": "node -e \"if(process.platform==='darwin'){try{require('fs').chmodSync(require('path').join('node_modules','node-pty','prebuilds','darwin-arm64','spawn-helper'),0o755)}catch{}}\""
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "node-pty": "^1.1.0",
-    "ws": "^8.20.0"
+    "dev": "cd wails-app && $(go env GOPATH)/bin/wails dev",
+    "build": "cd wails-app && $(go env GOPATH)/bin/wails build"
   },
   "overrides": {
     "dompurify": "^3.4.2"
@@ -37,7 +19,6 @@
     "lucide-react": "^1.14.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "reactflow": "^11.11.4",
     "vite": "^8.0.12"
   }
 }

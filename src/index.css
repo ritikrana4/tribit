@@ -1252,39 +1252,44 @@ body {
 
 .flow-wrap { flex: 1; min-height: 0; }
 
-/* ── ReactFlow overrides ─────────────────────────────── */
+/* ── Canvas controls ─────────────────────────────────── */
 
-.react-flow__node-worktree {
-  padding: 0 !important; border: none !important;
-  border-radius: 0 !important; background: transparent !important;
-  box-shadow: none !important;
-  width: 272px;
-  font-family: var(--mono); font-size: 14px;
+.canvas-controls {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
 }
 
-.react-flow__node-worktree.selected > .card {
-  border-color: var(--accent) !important;
-  box-shadow: 0 0 0 1px var(--accent);
+.canvas-ctrl-btn {
+  background: var(--surface);
+  border: none;
+  color: var(--text-2);
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
 }
+.canvas-ctrl-btn:hover { background: var(--surface-raised); color: var(--text); }
 
-.react-flow__controls {
-  background: var(--surface) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: var(--radius-sm) !important;
-  box-shadow: var(--shadow-sm) !important;
+.canvas-panel-bottom {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
 }
-
-.react-flow__controls-button {
-  background: var(--surface) !important;
-  border-bottom: 1px solid var(--border) !important;
-  color: var(--text-2) !important;
-  fill: var(--text-2) !important;
-}
-
-.react-flow__controls-button:hover {
-  background: var(--surface-raised) !important;
-  fill: var(--text) !important;
-}
+.canvas-panel-bottom > * { pointer-events: auto; }
 
 /* ── Worktree card ───────────────────────────────────── */
 
@@ -2207,4 +2212,5 @@ body {
 }
 
 .dv-file-header-stats { display: flex; gap: 6px; font-size: 12px; }
+
 

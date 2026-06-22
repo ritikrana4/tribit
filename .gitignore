@@ -3,6 +3,16 @@ node_modules/
 # Production build
 dist/
 
+# Wails build output and release artifacts
+wails-app/build/bin/
+wails-app/tribit-app
+*.dmg
+*.exe
+
+# Wails embedded dist (populated at build time, not committed)
+wails-app/frontend/dist/*
+!wails-app/frontend/dist/index.html
+
 # Logs
 *.log
 npm-debug.log*
@@ -22,13 +32,10 @@ npm-debug.log*
 
 # Claude Code
 .claude/
-lib/
-bin/claude
 
 # Temp / scratch
 temp/
 temp1/
-test/
 pkl/
 
 # Local config

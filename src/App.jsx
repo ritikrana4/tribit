@@ -1,29 +1,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { X, FolderOpen, Search, PowerOff, Plus, StopCircle, Trash2, Folder, ArrowLeft, ChevronRight, Bot, Terminal, Palette, Info, Mail, Zap, LayoutGrid } from 'lucide-react';
-import ReactFlow, {
-  Background,
-  BackgroundVariant,
-  Controls,
-  useNodesState,
-  useReactFlow,
-  Panel,
-} from 'reactflow';
-import 'reactflow/dist/style.css';
-
-import WorktreeNode from './components/WorktreeNode.jsx';
+import Canvas from './components/Canvas.jsx';
 import CreateModal from './components/CreateModal.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import { COLORS, ICONS } from './repoMeta.js';
-
-const nodeTypes = { worktree: WorktreeNode };
-
-function FlowController({ apiRef }) {
-  const { fitView, getNodes } = useReactFlow();
-  useEffect(() => {
-    apiRef.current = { fitView, getNodes };
-  });
-  return null;
-}
 
 function AgentSelect({ onSelect }) {
   return (
@@ -469,14 +449,14 @@ export default function App() {
   const [sidebarExpanded, setSidebarExpanded] = useState(
     () => localStorage.getItem('tribit-sidebar') !== 'collapsed'
   );
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [nodes, setNodes] = useState([]);
   const [agent, setAgent] = useState(() => localStorage.getItem('tribit-agent') || 'claude');
   const [agentChosen, setAgentChosen] = useState(() => !!localStorage.getItem('tribit-agent'));
   const [shuttingDown, setShuttingDown] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchIndex, setSearchIndex] = useState(0);
-  const flowApiRef = useRef(null);
+  const canvasRef = useRef(null);
   const searchRef = useRef(null);
   const pendingFocusRef = useRef(null);
   const pendingCreatedRef = useRef(null);
@@ -561,7 +541,13 @@ export default function App() {
         return;
       }
       const data = await res.json();
-      setWorktrees(data.worktrees);
+      // Skip state update + ReactFlow re-render when nothing structural changed
+      setWorktrees((prev) => {
+        const fp = (wts) => wts.map((w) =>
+          `${w.path}|${w.branch}|${w.status}|${w.filesChanged}|${(w.sessions || []).map((s) => s.sessionId).join(',')}`
+        ).join(';');
+        return fp(prev) === fp(data.worktrees) ? prev : data.worktrees;
+      });
     } catch (err) {
       if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
         setFatalError('Cannot connect to tribit server. Make sure you ran: npx tribit');
@@ -659,8 +645,8 @@ export default function App() {
     if (repoPath && repoPath !== repoRoot) {
       pendingFocusRef.current = nodeId;
       handleSwitchRepo(repoPath);
-    } else if (flowApiRef.current) {
-      flowApiRef.current.fitView({ nodes: [{ id: nodeId }], duration: 400, padding: 0.5 });
+    } else if (canvasRef.current) {
+      canvasRef.current.fitView({ nodes: [{ id: nodeId }], padding: 0.5 });
     }
   }, [repoRoot, handleSwitchRepo]);
 
@@ -755,7 +741,7 @@ export default function App() {
   }, []);
 
   const handleAutoArrange = useCallback(() => {
-    const allNodes = flowApiRef.current?.getNodes?.() ?? nodes;
+    const allNodes = canvasRef.current?.getNodes?.() ?? nodes;
     if (allNodes.length === 0) return;
 
     const GAP = 40;
@@ -763,8 +749,8 @@ export default function App() {
     const sorted = [...allNodes].sort((a, b) => a.position.y - b.position.y || a.position.x - b.position.x);
 
     const dimMap = new Map();
-    document.querySelectorAll('.react-flow__node').forEach((el) => {
-      const id = el.getAttribute('data-id');
+    document.querySelectorAll('[data-node-id]').forEach((el) => {
+      const id = el.dataset.nodeId;
       if (!id) return;
       const card = el.querySelector('.card');
       dimMap.set(id, {
@@ -800,7 +786,7 @@ export default function App() {
       });
     });
 
-    setTimeout(() => flowApiRef.current?.fitView({ duration: 400, padding: 0.25 }), 100);
+    setTimeout(() => canvasRef.current?.fitView({ padding: 0.25 }), 100);
   }, [nodes, setNodes]);
 
   useEffect(() => {
@@ -817,10 +803,24 @@ export default function App() {
     fetchRepos();
     fetchAllWorktrees();
     fetchSessions();
-    const t = setInterval(() => { fetchWorktrees(); fetchSessions(); }, 5000);
+    // Fallback poll — SSE handles real-time updates; this just catches any missed events
+    const t = setInterval(() => { fetchWorktrees(); fetchSessions(); }, 30000);
     pollIntervalRef.current = t;
     return () => { clearInterval(t); pollIntervalRef.current = null; };
   }, [fetchWorktrees, fetchRepos, fetchAllWorktrees, fetchSessions]);
+
+  // SSE: server pushes an event whenever git state or sessions change
+  useEffect(() => {
+    const es = new EventSource('/api/events');
+    es.onmessage = (e) => {
+      if (e.data === 'update') {
+        fetchWorktrees();
+        fetchSessions();
+      }
+    };
+    es.onerror = () => {};
+    return () => es.close();
+  }, [fetchWorktrees, fetchSessions]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -837,7 +837,7 @@ export default function App() {
     if (pendingCreatedRef.current && nodes.some((n) => n.id === pendingCreatedRef.current)) {
       pendingCreatedRef.current = null;
       setTimeout(() => {
-        flowApiRef.current?.fitView({ duration: 400, padding: 0.25 });
+        canvasRef.current?.fitView({ padding: 0.25 });
       }, 400);
     }
   }, [nodes]);
@@ -849,7 +849,7 @@ export default function App() {
       if (nodes.some((n) => n.id === target)) {
         pendingFocusRef.current = null;
         setTimeout(() => {
-          flowApiRef.current?.fitView({ nodes: [{ id: target }], duration: 400, padding: 0.5 });
+          canvasRef.current?.fitView({ nodes: [{ id: target }], padding: 0.5 });
         }, 150);
       }
     }
@@ -1005,27 +1005,14 @@ export default function App() {
         </header>
 
         <div className="flow-wrap">
-          <ReactFlow
+          <Canvas
+            ref={canvasRef}
             nodes={nodes}
-            edges={[]}
-            onNodesChange={onNodesChange}
-            nodeTypes={nodeTypes}
+            setNodes={setNodes}
             onNodeDragStop={handleNodeDragStop}
-            fitView
-            fitViewOptions={{ padding: 0.25 }}
-            deleteKeyCode={null}
-            proOptions={{ hideAttribution: true }}
-            preventScrolling={true}
-          >
-            <FlowController apiRef={flowApiRef} />
-            <Background variant={BackgroundVariant.Dots} gap={22} size={1} color={theme === 'light' ? '#d4d4d8' : '#1e1e1e'} />
-            <Controls showInteractive={false} />
-            <Panel position="bottom-center">
-              <button className="btn-add-float" onClick={() => setCreating(true)}>
-                <Plus size={14} /> New Worktree
-              </button>
-            </Panel>
-          </ReactFlow>
+            theme={theme}
+            onAdd={() => setCreating(true)}
+          />
         </div>
       </div>
 
