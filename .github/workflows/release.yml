@@ -8,13 +8,13 @@ on:
 jobs:
   build-mac:
     name: Build macOS
-    runs-on: macos-latest
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
 
       - uses: actions/setup-node@v4
         with:
@@ -26,8 +26,11 @@ jobs:
       - name: Install npm dependencies
         run: npm install
 
+      - name: Build frontend
+        run: npx vite build --outDir wails-app/frontend/dist --emptyOutDir
+
       - name: Build app
-        run: cd wails-app && wails build -platform darwin/universal
+        run: cd wails-app && wails build -platform darwin/universal -s
 
       - name: Create DMG
         run: |
@@ -55,7 +58,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
 
       - uses: actions/setup-node@v4
         with:
@@ -70,8 +73,11 @@ jobs:
       - name: Install npm dependencies
         run: npm install
 
+      - name: Build frontend
+        run: npx vite build --outDir wails-app/frontend/dist --emptyOutDir
+
       - name: Build app (with NSIS installer)
-        run: cd wails-app && wails build -nsis
+        run: cd wails-app && wails build -nsis -s
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
