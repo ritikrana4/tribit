@@ -37,6 +37,7 @@ func NewMux(cwd string, distFS ...fs.FS) *http.ServeMux {
 	registerSessionRoutes(mux)
 	registerRepoRoutes(mux)
 	registerFileRoutes(mux)
+	registerContextRoutes(mux)
 	mux.HandleFunc("GET /ws/terminal", handleWSTerminal)
 
 	var embeddedFS fs.FS

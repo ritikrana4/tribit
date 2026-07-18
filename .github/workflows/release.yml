@@ -90,15 +90,17 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: tribit-mac
+          path: ./artifacts/mac
 
       - name: Download Windows artifact
         uses: actions/download-artifact@v4
         with:
           name: tribit-windows
+          path: ./artifacts/windows
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            tribit-mac.dmg
-            *.exe
+            artifacts/mac/tribit-mac.dmg
+            artifacts/windows/*.exe

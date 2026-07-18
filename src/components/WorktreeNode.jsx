@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { GitBranch, Maximize2, Minimize2, X, Plus, StopCircle, GripVertical, ExternalLink, Code2, Folder, ChevronDown, ChevronUp } from 'lucide-react';
+import { GitBranch, Maximize2, Minimize2, X, Plus, StopCircle, GripVertical, ExternalLink, Code2, Folder, ChevronDown, ChevronUp, BookOpen } from 'lucide-react';
 import TerminalView from './TerminalView.jsx';
 import DiffViewer from './DiffViewer.jsx';
 import MonacoPanel from './MonacoPanel.jsx';
+import ContextPanel from './ContextPanel.jsx';
 
 export default function WorktreeNode({ data }) {
   const {
@@ -21,6 +22,7 @@ export default function WorktreeNode({ data }) {
   const [killConfirmId, setKillConfirmId] = useState(null);
   const [vscodeError, setVscodeError] = useState(null);
   const [termCollapsed, setTermCollapsed] = useState(false);
+  const [showContext, setShowContext] = useState(false);
   const [cardWidth, setCardWidth] = useState(560);
   const [termHeight, setTermHeight] = useState(280);
   const resizeDrag = useRef(null);
@@ -215,6 +217,9 @@ export default function WorktreeNode({ data }) {
                 {termCollapsed ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
               </button>
             )}
+            <button className="nodrag btn-icon" onClick={() => setShowContext(true)} title="Context (CLAUDE.md & Memory)">
+              <BookOpen size={15} />
+            </button>
             <button className="nodrag btn-icon btn-icon--expand" onClick={() => setFullscreen(true)} title="Expand">
               <Maximize2 size={17} />
             </button>
@@ -308,6 +313,14 @@ export default function WorktreeNode({ data }) {
           repoPath={worktree.path}
           branch={worktree.branch || worktree.name}
           onClose={() => setShowEditor(false)}
+        />
+      )}
+
+      {showContext && (
+        <ContextPanel
+          wtPath={worktree.path}
+          branch={worktree.branch || worktree.name}
+          onClose={() => setShowContext(false)}
         />
       )}
 

@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -24,8 +25,39 @@ func NewApp(distFS fs.FS) *App {
 	return &App{distFS: distFS}
 }
 
+// augmentPath prepends common tool directories to PATH so that git, claude, and
+// other CLI tools are reachable when the app is launched as a .app bundle, which
+// starts with a stripped PATH (/usr/bin:/bin only).
+func augmentPath() {
+	home, _ := os.UserHomeDir()
+	extra := []string{
+		"/opt/homebrew/bin",                      // Homebrew on Apple Silicon
+		"/opt/homebrew/sbin",
+		"/usr/local/bin",                          // Homebrew on Intel / npm globals
+		"/usr/local/sbin",
+		home + "/.volta/bin",                      // Volta (Node version manager)
+		home + "/.nvm/versions/node/current/bin",  // nvm
+		home + "/.npm-global/bin",                 // npm --global prefix
+		home + "/go/bin",                          // Go binaries
+		home + "/.cargo/bin",                      // Rust / cargo
+		home + "/.claude/local",                   // claude CLI local install
+	}
+	current := os.Getenv("PATH")
+	var prepend []string
+	for _, p := range extra {
+		if p != "" && !strings.Contains(":"+current+":", ":"+p+":") {
+			prepend = append(prepend, p)
+		}
+	}
+	if len(prepend) > 0 {
+		_ = os.Setenv("PATH", strings.Join(prepend, ":")+":"+current)
+	}
+}
+
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+
+	augmentPath()
 
 	cwd := os.Getenv("TRIBIT_CWD")
 	if cwd == "" {
@@ -39,6 +71,21 @@ func (a *App) startup(ctx context.Context) {
 	a.port = port
 
 	mux := tribitserver.NewMux(cwd, a.distFS)
+
+	// When launched as a macOS .app bundle, os.Getwd() returns "/" which is not
+	// a git repo. Auto-select the first registered repo so the app starts with a
+	// valid git root instead of showing "No repository selected".
+	if tribitserver.GetGitRoot() == "" {
+		repos := tribitserver.ReadRepos()
+		for _, repo := range repos {
+			tribitserver.SetRepoDir(repo.Path)
+			if tribitserver.GetGitRoot() != "" {
+				tribitserver.SetupWatchers(tribitserver.GetGitRoot())
+				break
+			}
+		}
+	}
+
 	a.server = &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
 		Handler: mux,

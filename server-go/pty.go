@@ -65,14 +65,21 @@ func CreateSession(wtPath, agent string) *Session {
 		}
 	}
 
-	cmd := exec.Command(shell)
+	// Use -l (login shell) so ~/.zprofile / ~/.bash_profile are sourced, giving
+	// the session the user's full PATH (homebrew, nvm, claude, etc.).
+	var shellArgs []string
+	if runtime.GOOS != "windows" {
+		shellArgs = []string{"-l"}
+	}
+
+	cmd := exec.Command(shell, shellArgs...)
 	cmd.Dir = wtPath
 	cmd.Env = append(os.Environ(), "TRIBIT=1")
 
 	ptmx, err := pty.Start(cmd)
 	if err != nil {
-		// fallback: try sh
-		cmd = exec.Command("sh")
+		// fallback: try sh -l
+		cmd = exec.Command("sh", "-l")
 		cmd.Dir = wtPath
 		cmd.Env = append(os.Environ(), "TRIBIT=1")
 		ptmx, err = pty.Start(cmd)

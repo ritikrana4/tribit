@@ -2213,4 +2213,152 @@ body {
 
 .dv-file-header-stats { display: flex; gap: 6px; font-size: 12px; }
 
+/* ── Context Panel ────────────────────────────────────── */
+
+.cp-branch {
+  font-size: 12px;
+  color: var(--text-3);
+  font-weight: 400;
+}
+
+.cp-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 8px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
+  vertical-align: middle;
+}
+
+.cp-sidebar {
+  padding: 6px 0;
+}
+
+.cp-file-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+}
+
+.cp-file-btn:hover { background: var(--hover-overlay); }
+.cp-file-btn--active { background: var(--accent-bg); }
+
+.cp-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border: 1px solid;
+  flex-shrink: 0;
+}
+
+.cp-file-label {
+  font-size: 12px;
+  color: var(--text-2);
+  font-family: var(--mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+.cp-file-btn--active .cp-file-label { color: var(--text); }
+
+.cp-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.cp-empty-icon { color: var(--text-3); }
+
+.cp-empty-text {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.cp-save-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.cp-save-btn {
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.cp-save-btn:hover:not(:disabled) { background: var(--accent); color: #fff; }
+.cp-save-btn:disabled { opacity: 0.5; cursor: default; }
+
+.cp-save-msg {
+  font-size: 12px;
+  color: var(--green);
+}
+.cp-save-msg--error { color: var(--red); }
+
+.cp-readonly-label {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-left: auto;
+}
+
+.cp-create-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 64px 48px;
+  text-align: center;
+}
+
+.cp-create-icon { color: var(--text-3); }
+
+.cp-create-text {
+  font-size: 13px;
+  color: var(--text-3);
+  max-width: 360px;
+  line-height: 1.6;
+}
+
+.cp-create-btn {
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.cp-create-btn:hover:not(:disabled) { background: var(--accent); color: #fff; }
+.cp-create-btn:disabled { opacity: 0.5; cursor: default; }
 
